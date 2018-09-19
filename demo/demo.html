@@ -8,21 +8,41 @@
   <style>
   .panel {
     height: 500px;
-    background: #ccc;
   }
   </style>
 </head>
 <body>
-  <div class="panel"></div>
+  <div class="panel" id="panel">
+    <button class="btn" data-for="C">C</button>
+    <button class="btn" data-for="D">D</button>
+    <button class="btn" data-for="E">E</button>
+    <button class="btn" data-for="F">F</button>
+    <button class="btn" data-for="G">G</button>
+    <button class="btn" data-for="A">A</button>
+    <button class="btn" data-for="B">B</button>
+  </div>
   <script src="/index.js"></script>
   <script>
-  var LitePiano = window.LitePiano;
-  var l = new LitePiano();
-  l.resume().then(() => {
-    return l.initSound()
-  }).then(() => {
-    console.log(l);
-  })
+  window.onload = () => {
+    const initDomEvent = (piano) => {
+      const panel = document.getElementById('panel');
+      panel.addEventListener('click', (e) => {
+        if (!e || !e.target) {
+          return;
+        }
+        const name = e.target.getAttribute('data-for');
+        piano.play(name);
+      });
+    }
+
+    const LitePiano = window.LitePiano;
+    var piano = new LitePiano();
+    piano.resume().then(() => {
+      return piano.initAllSound()
+    }).then(() => {
+      initDomEvent(piano);
+    });
+  }
   </script>
 </body>
 </html>

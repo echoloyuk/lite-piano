@@ -32,7 +32,7 @@ class LitePiano {
     });
   }
 
-  initSound() {
+  initAllSound() {
     const context = this.context;
     const _origin = this._origin;
     const todoList = [];
@@ -52,6 +52,22 @@ class LitePiano {
       }));
     });
     return Promise.all(todoList);
+  }
+
+  play(name, rate = 1) {
+    if (!name) {
+      return;
+    }
+    const source = this.context.createBufferSource();
+    const dest = this.bufferList.find(item => item.name === name);
+    if (!dest) {
+      return;
+    }
+    source.buffer = dest.buffer;
+    source.playbackRate.value = rate
+    source.connect(this.context.destination);
+    source.start(0);
+    source.stop(this.context.currentTime + 3);
   }
 }
 
