@@ -66,7 +66,7 @@ class LitePiano {
     source.buffer = dest.buffer;
     source.playbackRate.value = rate
     source.connect(this.context.destination);
-    source.start(0);
+    source.start(this.context.currentTime);
     source.stop(this.context.currentTime + 3);
   }
 }
