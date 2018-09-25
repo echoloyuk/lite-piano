@@ -12,18 +12,23 @@
   </style>
 </head>
 <body>
-  <div class="panel" id="panel">
-    <button class="btn" data-for="C">C</button>
-    <button class="btn" data-for="D">D</button>
-    <button class="btn" data-for="E">E</button>
-    <button class="btn" data-for="F">F</button>
-    <button class="btn" data-for="G">G</button>
-    <button class="btn" data-for="A">A</button>
-    <button class="btn" data-for="B">B</button>
-  </div>
+  <div class="panel" id="panel"></div>
   <script src="/index.js"></script>
   <script>
   window.onload = () => {
+    const initDom = () => {
+      let html = '';
+      for (let i = 0; i < 7; i++) {
+        html += `<div><button class="btn" data-for="C" data-octave="${i + 1}">C</button>`;
+        html += `<button class="btn" data-for="D" data-octave="${i + 1}">D</button>`;
+        html += `<button class="btn" data-for="E" data-octave="${i + 1}">E</button>`;
+        html += `<button class="btn" data-for="F" data-octave="${i + 1}">F</button>`;
+        html += `<button class="btn" data-for="G" data-octave="${i + 1}">G</button>`;
+        html += `<button class="btn" data-for="A" data-octave="${i + 1}">A</button>`;
+        html += `<button class="btn" data-for="B" data-octave="${i + 1}">B</button></div>`;
+      }
+      document.getElementById('panel').innerHTML = html;
+    };
     const initDomEvent = (piano) => {
       const panel = document.getElementById('panel');
       panel.addEventListener('click', (e) => {
@@ -31,7 +36,8 @@
           return;
         }
         const name = e.target.getAttribute('data-for');
-        piano.play(name);
+        const octave = e.target.getAttribute('data-octave');
+        piano.oneShot(name, octave);
       });
     }
 
@@ -40,6 +46,7 @@
     piano.resume().then(() => {
       return piano.initAllSound()
     }).then(() => {
+      initDom();
       initDomEvent(piano);
     });
   }

@@ -1,6 +1,9 @@
 import SOUND_MAP from './data/data';
 import { decode } from 'base64-arraybuffer';
 
+// pitch rate in each octave. standard rate level is in 4 
+const PITCH_RATE = [0.12, 0.24, 0.49, 1, 2, 3.99, 8.01];
+
 class LitePiano {
   constructor() {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -11,6 +14,16 @@ class LitePiano {
     this._origin = SOUND_MAP;
   }
 
+  /**
+   * For Note:
+   * > On iOS, the Web Audio API requires sounds to be triggered from an explicit user action, such as a tap. 
+   * > Calling noteOn() from an onload event will not play sound.
+   * in https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/Using_HTML5_Audio_Video/PlayingandSynthesizingSounds/PlayingandSynthesizingSounds.html#//apple_ref/doc/uid/TP40009523-CH6-SW1
+   * 
+   * The function encapsulates the automatic processing of the state in which the sound context of the unlocked ios is suspended by user interaction.
+   * 
+   * Returns the Promise object, if executed on the IOS, then resolve will be executed after the user clicks the screen to unlock the audio context.
+   */
   resume() {
     const context = this.context;
     return new Promise((resolve, reject) => {
@@ -32,6 +45,9 @@ class LitePiano {
     });
   }
 
+  /**
+   * Load all pitch data into the buffer.
+   */
   initAllSound() {
     const context = this.context;
     const _origin = this._origin;
@@ -54,6 +70,11 @@ class LitePiano {
     return Promise.all(todoList);
   }
 
+  /**
+   * Play a pitch sound.
+   * @param {string} name The tone name. eg. C, D, E, F, G, A, B 
+   * @param {number} rate The octave of each tone is adjusted according to the value of rate.
+   */
   play(name, rate = 1) {
     if (!name) {
       return;
@@ -68,6 +89,21 @@ class LitePiano {
     source.connect(this.context.destination);
     source.start(this.context.currentTime);
     source.stop(this.context.currentTime + 3);
+  }
+
+  /**
+   * Play a tone through tone name, octave and alter.
+   * eg: oneShot('D', 4) is the basic tone re (C). 4 is octave. 
+   * Basic tone is 4. lower octave is 3, 2, 1. Higher is 5, 6, 7
+   * @param {*} step 
+   * @param {*} octave 
+   * @param {*} alter 
+   */
+  oneShot(step, octave = 4, alter = 1) {
+    if (!step) {
+      return;
+    }
+    this.play(step, PITCH_RATE[octave - 1]*(alter ? 1.06 : 1));
   }
 }
 
