@@ -62,4 +62,13 @@ piano.initAllSound().then(() => {
 piano.oneShot('C', 4, 0);
 ```
 
+## 兼容性
 
+由于使用原生的JavaScript Web Audio API, 因此不兼容IE系列浏览器，十分抱歉
+
+- Chrome: up to 49
+- FireFox: up to 61
+- Edge: 17
+- Safari: 11.1
+- iOS Safari: up to 10.3
+- Chrome for Android: up to 69
