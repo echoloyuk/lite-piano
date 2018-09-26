@@ -1,0 +1,30 @@
+.lite-piano-ui-container {
+  border: 1px solid #f00;
+  height: 160px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+}
+
+.lite-piano-ui-container .piano-key-outer {
+  height: 100%;
+  flex-basis: 2%;
+}
+.lite-piano-ui-container .piano-key-outer .piano-key {
+  border: 1px solid #333;
+  height: 100%;
+}
+
+.lite-piano-ui-container .piano-key-outer.alter {
+  height: 100%;
+  width: 0;
+  position: absolute;
+}
+
+.lite-piano-ui-container .piano-key-outer.alter .piano-key {
+  height: 50%;
+  width: 2%;
+  position: absolute;
+  background: #333;
+}

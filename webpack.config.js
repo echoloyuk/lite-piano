@@ -1,10 +1,21 @@
 const path = require('path');
 
 module.exports = {
-  entry: './src/index.js',
+  entry: {
+    index: './src/index.js',
+    ui: './src/ui.js'
+  },
   mode: 'development',
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader']
+      }
+    ]
+  },
   output: {
-    filename: 'index.js',
+    filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
     publicPath: '/'
   },

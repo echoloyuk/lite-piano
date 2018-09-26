@@ -5,7 +5,7 @@ import keyboard from './data/piano-keyboard';
 // pitch rate in each octave. standard rate level is in 4 
 const PITCH_RATE = [0.06, 0.12, 0.24, 0.49, 1, 2, 3.99, 8.01, 16.02];
 
-class LitePiano {
+export default class LitePiano {
   constructor() {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     const context = new AudioContext();
