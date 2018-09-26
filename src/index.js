@@ -1,8 +1,9 @@
 import SOUND_MAP from './data/data';
 import { decode } from 'base64-arraybuffer';
+import keyboard from './data/piano-keyboard';
 
 // pitch rate in each octave. standard rate level is in 4 
-const PITCH_RATE = [0.12, 0.24, 0.49, 1, 2, 3.99, 8.01];
+const PITCH_RATE = [0.06, 0.12, 0.24, 0.49, 1, 2, 3.99, 8.01, 16.02];
 
 class LitePiano {
   constructor() {
@@ -12,6 +13,7 @@ class LitePiano {
     this.context = context;
     this.bufferList = [];
     this._origin = SOUND_MAP;
+    this.keyboard = keyboard.keyborad;
   }
 
   /**
@@ -89,21 +91,22 @@ class LitePiano {
     source.connect(this.context.destination);
     source.start(this.context.currentTime);
     source.stop(this.context.currentTime + 3);
+    return source;
   }
 
   /**
    * Play a tone through tone name, octave and alter.
    * eg: oneShot('D', 4) is the basic tone re (C). 4 is octave. 
    * Basic tone is 4. lower octave is 3, 2, 1. Higher is 5, 6, 7
-   * @param {*} step 
-   * @param {*} octave 
-   * @param {*} alter 
+   * @param {string} step 
+   * @param {number} octave 
+   * @param {number} alter 
    */
   oneShot(step, octave = 4, alter = 1) {
     if (!step) {
       return;
     }
-    this.play(step, PITCH_RATE[octave - 1]*(alter ? 1.06 : 1));
+    return this.play(step, PITCH_RATE[octave]*(alter ? 1.06 : 1));
   }
 }
 
