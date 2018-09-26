@@ -8,7 +8,7 @@ See Readme with [中文版](./README_zh_cn.md)
 
 ### Use source
 
-Download the source code, put `/dist/index.js` where you need it, and load the contents of `/dist/index.js` directly onto the page.
+Download the source code, put `/dist/index.js` where you need it, and load the contents of `/dist/index.js` directly into the page.
 
 ### Use for localhost
 
@@ -58,10 +58,10 @@ piano.initAllSound().then(() => {
 
 ### `oneShot(step, octave, alter)`
 
-This function returns an audio source object. This function will play a pitch sound.
+This function returns an audio source object, and play a pitch sound.
 Step indicates the tone name, respectively: C, D, E, F, G, A, B. 
-Octave represents octave, the standard piano key C has an octave of 4, a maximum of 8, and a minimum of 0. 
-When alter is 1, it indicates an upgrade, for example: C#, F#, etc. The up tone is the black key on the piano.
+Octave represents octave, max is 8, and min is 0. eg. The standard piano key C has an octave of 4
+And alter = 1 indicates an alter step tone, for example: C#, F#, etc. Usually, The alter tone is the black key on the piano.
 
 ```
 piano.oneShot('C', 4, 0);
