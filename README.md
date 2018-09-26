@@ -2,6 +2,8 @@
 
 A mini piano component based on the JavaScript Web Audio API, for playing the basic tone of a piano using the Audio Context in a web app.
 
+See Readme with [中文版](./README_zh_cn.md)
+
 ## How to install
 
 ### Use source
