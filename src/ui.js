@@ -5,6 +5,7 @@ import './ui.css';
 export default class PianoUI {
   constructor() {
     this.piano = new Piano();
+    this.aniTimmer = {};
   }
 
   initPiano() {
@@ -28,7 +29,7 @@ export default class PianoUI {
       const step = e.target.getAttribute('data-step');
       const octave = parseInt(e.target.getAttribute('data-octave'));
       const alter = parseInt(e.target.getAttribute('data-alter'));
-      self.piano.oneShot(step, octave, alter);
+      self.playOneShot(step, octave, alter);
     });
   }
 
@@ -41,6 +42,7 @@ export default class PianoUI {
     keyboard.forEach(item => {
       html += `<div class="piano-key-outer ${item.alter ? 'alter' : ''}">`
       html += `<div class="piano-key"
+                id="${item.step}-${item.octave}-${item.alter}"
                 data-step="${item.step}" 
                 data-octave="${item.octave}" 
                 data-alter="${item.alter}">
@@ -49,7 +51,35 @@ export default class PianoUI {
     html += '</div>';
     element.innerHTML = html;
 
+    const onResize = () => {
+      this.refreshAlterKey(element);
+    }
+    
+    // resize to calculate black key to show.
+    window.removeEventListener('resize', onResize);
+    window.addEventListener('resize', onResize);
+
     this.refreshAlterKey(element);
+  }
+
+  playOneShot(step, octave, alter) {
+    if (!step || !octave) {
+      return;
+    }
+    const id = `${step}-${octave}-${alter ? 1 : 0}`;
+    const keyDom = document.getElementById(id);
+    if (!keyDom) {
+      return;
+    }
+
+    keyDom.classList.add('playing');
+    this.piano.oneShot(step, octave, alter);
+    try {
+      clearTimeout(this.aniTimmer[id]);
+    } catch (e) {}
+    this.aniTimmer[id] = setTimeout(() => {
+      keyDom.classList.remove('playing');
+    }, 300);
   }
 
   refreshAlterKey(element) {
