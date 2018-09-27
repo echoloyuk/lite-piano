@@ -1,5 +1,4 @@
 .lite-piano-ui-container {
-  border: 1px solid #f00;
   height: 160px;
   width: 100%;
   display: flex;
@@ -14,17 +13,21 @@
 .lite-piano-ui-container .piano-key-outer .piano-key {
   border: 1px solid #333;
   height: 100%;
+  transition: all .3s;
+  background: #fff;
 }
 
 .lite-piano-ui-container .piano-key-outer.alter {
   height: 100%;
-  width: 0;
-  position: absolute;
+  flex-basis: 0;
+  position: relative;
 }
 
 .lite-piano-ui-container .piano-key-outer.alter .piano-key {
-  height: 50%;
-  width: 2%;
+  height: 60%;
   position: absolute;
+  left: 0;
+  top:0;
   background: #333;
+  transform: translateX(-50%);
 }

@@ -16,7 +16,7 @@ Download the source code, put `/dist/index.js` where you need it, and load the c
 - `cd lite-piano`
 - `npm install`
 - `npm run start` start webpack-dev-server。
-- Open the browser `127.0.0.1:8080/demo/index.html`
+- Open the browser `127.0.0.1:9090/demo/index.html`
 
 ## How to use
 
@@ -38,7 +38,7 @@ piano.resume().then(() => {
 
 ### `resume()`
 
-This method returns a Promise. On the IOS, the audio contexts are automatically suspended, requiring the user to manually trigger an event to unlock. Therefore, after executing this function, the logic implementation after the user interaction is unlocked can be directly concerned.
+This method returns a Promise. On the IOS, the audio contexts are automatically suspended, requiring the user to manually trigger an event to unlock. Therefore, after executing this function, the logic implementation after the user interaction is unlocked can be directly executed.
 
 ```
 piano.resume().then(() => {

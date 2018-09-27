@@ -14,7 +14,7 @@
 - `cd lite-piano`
 - `npm install`
 - `npm run start` 启动本地服务器。
-- 访问`127.0.0.1:8080/demo/index.html`即可
+- 访问`127.0.0.1:9090/demo/index.html`即可
 
 ## How to use
 

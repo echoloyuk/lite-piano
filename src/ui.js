@@ -44,11 +44,23 @@ export default class PianoUI {
                 data-step="${item.step}" 
                 data-octave="${item.octave}" 
                 data-alter="${item.alter}">
-                  ${item.step}
               </div></div>`;
     });
     html += '</div>';
     element.innerHTML = html;
+
+    this.refreshAlterKey(element);
+  }
+
+  refreshAlterKey(element) {
+    if (!element) {
+      return;
+    }
+    const alterKeyWidth = element.offsetWidth / 86;
+    const keys = element.querySelectorAll('.piano-key-outer.alter .piano-key');
+    keys && keys.forEach(key => {
+      key.style.width = alterKeyWidth + 'px';
+    });
   }
 }
 
