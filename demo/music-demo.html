@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+  <title>Document</title>
+</head>
+<body>
+  <div id="piano"></div>
+  <script src="/ui.js"></script>
+  <script src="/util.js"></script>
+  <script>
+  window.onload = () => {
+    const piano = new window.PianoUI();
+    const pianoDom = document.getElementById('piano');
+    piano.render(pianoDom);
+    piano.initPiano().then(() => {
+      piano.bindDomEvent(pianoDom);
+    });
+    
+    // fetch xml
+    fetch('/musicxml/littlestar.xml').then(res => res.text()).then(text => {
+      const musicObj = window.PianoUtil.xmlToJson(text);
+      console.log(musicObj);
+    });
+    
+    // console.log(window.PianoUtil.xmlToJson('<text>asdad</text>'));
+  }
+  </script>
+</body>
+</html>
