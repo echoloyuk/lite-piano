@@ -5,25 +5,58 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
   <title>Document</title>
+  <link rel="stylesheet" href="./assets/music-demo.css" />
+  <style>
+  #piano {display: none}
+  </style>
 </head>
 <body>
   <div id="piano"></div>
+  <div id="play">Play</div>
+  <div id="list"></div>
   <script src="/ui.js"></script>
   <script src="/util.js"></script>
+  <script src="./assets/music-demo.js"></script>
   <script>
   window.onload = () => {
     const piano = new window.PianoUI();
     const pianoDom = document.getElementById('piano');
+    const playDom = document.getElementById('play');
     piano.render(pianoDom);
     piano.initPiano().then(() => {
       piano.bindDomEvent(pianoDom);
     });
     
+    let playingObj;
+    let startTime;
+
     // fetch xml
-    fetch('/musicxml/littlestar.xml').then(res => res.text()).then(text => {
+    fetch('/musicxml/happybirthday.xml').then(res => res.text()).then(text => {
       const musicObj = window.PianoUtil.xmlToJson(text);
       console.log(musicObj);
+      playingObj = window.PianoUtil.getPlayingObject(musicObj);
+      playingObj = window.PianoUtil.getPlayingTimeObject(playingObj, 500);
+      console.log(playingObj);
+      renderMusicObj(playingObj, document.getElementById('list'));
     });
+    
+    playDom.addEventListener('click', () => {
+      console.log(piano.piano.context.currentTime);
+      startTime = piano.piano.context.currentTime;
+    });
+
+    function looper() {
+
+      requestAnimationFrame(looper);
+    }
+
+    // fetch('/musicxml/cannonD.xml').then(res => res.text()).then(text => {
+    //   const musicObj = window.PianoUtil.xmlToJson(text);
+    //   console.log(musicObj);
+    //   const playingObj = window.PianoUtil.getPlayingObject(musicObj);
+    //   window.PianoUtil.getPlayingTimeObject(playingObj, 1000);
+    //   renderMusicObj(playingObj, document.getElementById('list'));
+    // });
     
     // console.log(window.PianoUtil.xmlToJson('<text>asdad</text>'));
   }
