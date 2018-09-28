@@ -7,3 +7,25 @@ function renderMusicObj(obj, panel) {
 
   panel.innerHTML = html;
 }
+
+function renderMusicObjTest(obj, panel) {
+  let html = '<div class="music-test-panel">';
+
+  obj.playingList.forEach((listItem, listIndex) => {
+    html += `<div class="music-test-measure" data-index="${listIndex}">`;
+    Object.keys(listItem).forEach(staffItemName => {
+      html += '<div class="music-test-staff">';
+      listItem[staffItemName].forEach(noteItem => {
+        html += `<div class="music-test-note">`;
+        html += `${noteItem.step} ${noteItem.octave} ${noteItem.alter} ${noteItem.timeStamp}`
+        html += '</div>'
+      })
+      html += '</div>';
+    })
+    html += '</div>';
+  });
+
+  html += '</div>'
+
+  panel.innerHTML = html;
+}

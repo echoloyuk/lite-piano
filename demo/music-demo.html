@@ -7,7 +7,7 @@
   <title>Document</title>
   <link rel="stylesheet" href="./assets/music-demo.css" />
   <style>
-  #piano {display: none}
+  #piano {}
   </style>
 </head>
 <body>
@@ -29,25 +29,56 @@
     
     let playingObj;
     let startTime;
+    let finalObj;
+    
+    // const url = '/musicxml/happybirthday.xml';
+    const url = '/musicxml/cannonD.xml';
 
     // fetch xml
-    fetch('/musicxml/happybirthday.xml').then(res => res.text()).then(text => {
+    fetch(url).then(res => res.text()).then(text => {
       const musicObj = window.PianoUtil.xmlToJson(text);
       console.log(musicObj);
       playingObj = window.PianoUtil.getPlayingObject(musicObj);
-      playingObj = window.PianoUtil.getPlayingTimeObject(playingObj, 500);
+      finalObj = window.PianoUtil.getPlayingTimeObject(playingObj, 1000);
+      renderMusicObjTest(playingObj, document.getElementById('list'));
       console.log(playingObj);
-      renderMusicObj(playingObj, document.getElementById('list'));
+      // renderMusicObj(finalObj, document.getElementById('list'));
     });
     
     playDom.addEventListener('click', () => {
       console.log(piano.piano.context.currentTime);
-      startTime = piano.piano.context.currentTime;
+      startTime = piano.piano.context.currentTime * 1000;
+      looper();
     });
 
     function looper() {
+      const tmpArr = [];
+      const context = piano.piano.context;
+      const offest = Math.floor(context.currentTime * 1000 - startTime);
+      let finished = true;
 
-      requestAnimationFrame(looper);
+      finalObj.forEach(item => {
+        if (!item.played && item.timeStamp <= offest) {
+          tmpArr.push(item);
+          item.played = true;
+        }
+        if (!item.played) {
+          finished = false;
+        }
+      });
+      
+      if (tmpArr.length) {
+        console.log(tmpArr.length);
+        tmpArr.forEach(item => {
+          piano.playOneShot(item.step, parseInt(item.octave), parseInt(item.alter));
+        });
+      }
+
+      if (!finished) {
+        requestAnimationFrame(looper);
+      } else {
+        console.log('finish');
+      }
     }
 
     // fetch('/musicxml/cannonD.xml').then(res => res.text()).then(text => {

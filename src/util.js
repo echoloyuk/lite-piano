@@ -39,7 +39,8 @@ export function getPlayingObject(sourceObj) {
         octave: noteItem.pitch.octave._text,
         alter: (noteItem.pitch.alter && noteItem.pitch.alter._text) || '0',
         duration: noteItem.duration._text,
-        stay: parseInt(noteItem.duration._text) / division
+        stay: parseInt(noteItem.duration._text) / division,
+        chord: noteItem.chord ? true : false
       });
     });
     result.playingList.push(currMeasure);
@@ -72,8 +73,13 @@ export function getPlayingTimeObject(sourceObj, quaterTime) {
     Object.keys(listItem).forEach(staffName => {
       const curStaffList = listItem[staffName];
       let time = totalTime;
+      let oldTime = time;
       curStaffList.forEach(note => {
-        note.timeStamp = time;
+        if (note.chord) {
+          note.timeStamp = oldTime;
+        } else {
+          note.timeStamp = time;
+        }
         note.played = false;
 
         result.push({
@@ -83,8 +89,10 @@ export function getPlayingTimeObject(sourceObj, quaterTime) {
           timeStamp: time,
           played: false
         });
-
-        time += quaterTime * note.stay;
+        if (!note.chord) {
+          oldTime = time;
+          time += quaterTime * note.stay;
+        }
         if (time > listTime) {
           listTime = time;
         }
