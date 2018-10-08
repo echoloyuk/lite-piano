@@ -68,9 +68,9 @@
       });
       
       if (tmpArr.length) {
-        console.log(tmpArr.length);
         tmpArr.forEach(item => {
           piano.playOneShot(item.step, parseInt(item.octave), parseInt(item.alter));
+          console.log(item.timeStamp);
         });
       }
 

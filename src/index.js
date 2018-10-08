@@ -3,7 +3,7 @@ import { decode } from 'base64-arraybuffer';
 import keyboard from './data/piano-keyboard';
 
 // pitch rate in each octave. standard rate level is in 4 
-const PITCH_RATE = [0.06, 0.12, 0.24, 0.49, 1, 2, 3.99, 8.01, 16.02];
+const PITCH_RATE = [0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16];
 
 export default class LitePiano {
   constructor() {
@@ -106,6 +106,19 @@ export default class LitePiano {
     if (!step) {
       return;
     }
+    step = step.toUpperCase();
+    if (alter === 1) {
+      if (step === 'E') {
+        step = 'F';
+        alter = 0;
+      }
+      if (step === 'B') {
+        step = 'C';
+        alter = 0;
+        octave += 1;
+      }
+    }
+    console.log(step, octave, alter);
     return this.play(step, PITCH_RATE[octave]*(alter ? 1.06 : 1));
   }
 }
