@@ -4,6 +4,8 @@ A mini piano component based on the JavaScript Web Audio API, for playing the ba
 
 See Readme with [中文版](./README_zh_cn.md)
 
+![](http://oq4op0hf5.bkt.clouddn.com/20181010193120.png)
+
 ## How to install
 
 ### Use source

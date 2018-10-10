@@ -1,9 +1,0 @@
-.music-test-measure {
-  border: 1px solid #ccc;
-  display: flex;
-  justify-content: space-between;
-  align-items: stretch;
-}
-.music-test-staff {
-  flex-basis: 100%;
-}

@@ -68,6 +68,7 @@ export function dealPlayingTimeObject(sourceObj, quaterTime) {
 export function getPlayingTimeObject(sourceObj, quaterTime) {
   const result = [];
   let totalTime = 0;
+  let uid = 0;
   sourceObj.playingList.forEach(listItem => {
     let listTime = totalTime;
     Object.keys(listItem).forEach(staffName => {
@@ -81,13 +82,16 @@ export function getPlayingTimeObject(sourceObj, quaterTime) {
           note.timeStamp = time;
         }
         note.played = false;
+        note.uid = uid;
+        uid++;
 
         result.push({
           step: note.step,
           octave: note.octave,
           alter: note.alter,
           timeStamp: note.timeStamp,
-          played: false
+          played: false,
+          uid: note.uid
         });
         if (!note.chord) {
           oldTime = time;

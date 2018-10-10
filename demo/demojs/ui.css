@@ -37,3 +37,30 @@
 .lite-piano-ui-container .piano-key-outer.alter .piano-key.playing {
   background: #999;
 }
+
+
+.music-test-measure {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+}
+.music-test-measure-panel {
+  margin-bottom: 12px;
+}
+.music-test-staff {
+  flex-basis: 100%;
+  text-align: center;
+  border: 1px solid #666;
+}
+.music-test-measure-title {
+  text-align: center;
+  background: #666;
+  height: 32px;
+  line-height: 32px;
+  color: #fff;
+}
+
+.music-test-note.played {
+  background: #ccc;
+  color: #fff;
+}
