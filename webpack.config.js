@@ -3,8 +3,8 @@ const path = require('path');
 module.exports = {
   entry: {
     index: './src/index.js',
-    ui: './src/ui.js',
-    util: './src/util.js'
+    ui: './demo/demojs/ui.js',
+    util: './demo/demojs/util.js'
   },
   mode: 'development',
   module: {

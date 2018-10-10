@@ -1,4 +1,4 @@
-import Piano from './index';
+import Piano from '../../src/index.js';
 
 import './ui.css';
 
