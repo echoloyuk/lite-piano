@@ -107,6 +107,11 @@ export default class LitePiano {
       return;
     }
     step = step.toUpperCase();
+
+    /**
+     * Since E and B do not have black keys on the piano, but you can still make adjustments on E and B. 
+     * The result of alter is F in same octave and C in a higher octave.
+     */
     if (alter === 1) {
       if (step === 'E') {
         step = 'F';

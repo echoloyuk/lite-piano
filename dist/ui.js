@@ -81,10 +81,189 @@
 /******/
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = "./src/demo/ui.js");
+/******/ 	return __webpack_require__(__webpack_require__.s = "./demo/demojs/ui.js");
 /******/ })
 /************************************************************************/
 /******/ ({
+
+/***/ "./demo/demojs/ui.css":
+/*!****************************!*\
+  !*** ./demo/demojs/ui.css ***!
+  \****************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+
+var content = __webpack_require__(/*! !../../node_modules/css-loader!./ui.css */ "./node_modules/css-loader/index.js!./demo/demojs/ui.css");
+
+if(typeof content === 'string') content = [[module.i, content, '']];
+
+var transform;
+var insertInto;
+
+
+
+var options = {"hmr":true}
+
+options.transform = transform
+options.insertInto = undefined;
+
+var update = __webpack_require__(/*! ../../node_modules/style-loader/lib/addStyles.js */ "./node_modules/style-loader/lib/addStyles.js")(content, options);
+
+if(content.locals) module.exports = content.locals;
+
+if(false) {}
+
+/***/ }),
+
+/***/ "./demo/demojs/ui.js":
+/*!***************************!*\
+  !*** ./demo/demojs/ui.js ***!
+  \***************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return PianoUI; });
+/* harmony import */ var _src_index_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../src/index.js */ "./src/index.js");
+/* harmony import */ var _ui_css__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./ui.css */ "./demo/demojs/ui.css");
+/* harmony import */ var _ui_css__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_ui_css__WEBPACK_IMPORTED_MODULE_1__);
+
+
+
+
+class PianoUI {
+  constructor() {
+    this.piano = new _src_index_js__WEBPACK_IMPORTED_MODULE_0__["default"]();
+    this.aniTimmer = {};
+  }
+
+  initPiano() {
+    return new Promise((resolve, reject) => {
+      this.piano.resume().then(() => {
+        return this.piano.initAllSound();
+      }).then(() => {
+        resolve(this.piano);
+      }).catch(() => {
+        reject();
+      });
+    });
+  }
+
+  bindDomEvent(element) {
+    const self = this;
+    element.addEventListener('click', e => {
+      if (!e || !e.target) {
+        return;
+      }
+      const step = e.target.getAttribute('data-step');
+      const octave = parseInt(e.target.getAttribute('data-octave'));
+      const alter = parseInt(e.target.getAttribute('data-alter'));
+      console.log(step, octave, alter);
+      self.playOneShot(step, octave, alter);
+    });
+  }
+
+  render(element) {
+    if (!element) {
+      return;
+    }
+    const keyboard = this.piano.keyboard;
+    let html = '<div class="lite-piano-ui-container">';
+    keyboard.forEach(item => {
+      html += `<div class="piano-key-outer ${item.alter ? 'alter' : ''}">`
+      html += `<div class="piano-key"
+                id="${item.step}-${item.octave}-${item.alter}"
+                data-step="${item.step}" 
+                data-octave="${item.octave}" 
+                data-alter="${item.alter}">
+              </div></div>`;
+    });
+    html += '</div>';
+    element.innerHTML = html;
+
+    const onResize = () => {
+      this.refreshAlterKey(element);
+    }
+    
+    // resize to calculate black key to show.
+    window.removeEventListener('resize', onResize);
+    window.addEventListener('resize', onResize);
+
+    this.refreshAlterKey(element);
+  }
+
+  playOneShot(step, octave, alter) {
+    if (!step || !octave) {
+      return;
+    }
+    const id = `${step}-${octave}-${alter ? 1 : 0}`;
+    const keyDom = document.getElementById(id);
+    if (!keyDom) {
+      return;
+    }
+
+    keyDom.classList.add('playing');
+    this.piano.oneShot(step, octave, alter);
+    try {
+      clearTimeout(this.aniTimmer[id]);
+    } catch (e) {}
+    this.aniTimmer[id] = setTimeout(() => {
+      keyDom.classList.remove('playing');
+    }, 300);
+  }
+
+  refreshAlterKey(element) {
+    if (!element) {
+      return;
+    }
+    const alterKeyWidth = element.offsetWidth / 86;
+    const keys = element.querySelectorAll('.piano-key-outer.alter .piano-key');
+    keys && keys.forEach(key => {
+      key.style.width = alterKeyWidth + 'px';
+    });
+  }
+
+  renderMusicObj(obj, panel) {
+    let html = '<div class="music-demo-panel">';
+      obj.forEach(item => {
+        html += `<div class="music-item" data-played="${item.played}">${item.step} ${item.octave} ${item.timeStamp}</div>`;
+      })
+    html += '</div>';
+  
+    panel.innerHTML = html;
+  }
+  
+  renderMusicObjTest(obj, panel) {
+    let html = '<div class="music-test-panel">';
+  
+    obj.playingList.forEach((listItem, listIndex) => {
+      html += `<div class="music-test-measure-panel">`;
+      html += `<div class="music-test-measure-title">No.${listIndex + 1} measure.</div>`;
+      html += `<div class="music-test-measure" data-index="${listIndex}">`;
+      Object.keys(listItem).forEach(staffItemName => {
+        html += '<div class="music-test-staff">';
+        listItem[staffItemName].forEach(noteItem => {
+          html += `<div class="music-test-note" id="note_${noteItem.uid}">`;
+          html += `${noteItem.step} ${noteItem.octave} ${noteItem.alter} ${noteItem.timeStamp}`
+          html += '</div>'
+        })
+        html += '</div>';
+      })
+      html += '</div>';
+      html += '</div>';
+    });
+  
+    html += '</div>'
+  
+    panel.innerHTML = html;
+  }
+}
+
+window.PianoUI = PianoUI;
+
+/***/ }),
 
 /***/ "./node_modules/base64-arraybuffer/lib/base64-arraybuffer.js":
 /*!*******************************************************************!*\
@@ -164,10 +343,10 @@
 
 /***/ }),
 
-/***/ "./node_modules/css-loader/index.js!./src/demo/ui.css":
-/*!***************************************************!*\
-  !*** ./node_modules/css-loader!./src/demo/ui.css ***!
-  \***************************************************/
+/***/ "./node_modules/css-loader/index.js!./demo/demojs/ui.css":
+/*!******************************************************!*\
+  !*** ./node_modules/css-loader!./demo/demojs/ui.css ***!
+  \******************************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
@@ -176,7 +355,7 @@ exports = module.exports = __webpack_require__(/*! ../../node_modules/css-loader
 
 
 // module
-exports.push([module.i, ".lite-piano-ui-container {\n  height: 140px;\n  width: 100%;\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n\n.lite-piano-ui-container .piano-key-outer {\n  height: 100%;\n  flex-basis: 2%;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key {\n  border: 1px solid #333;\n  height: 100%;\n  transition: all .2s ease-out;\n  background: #fff;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key.playing {\n  background: #bbb;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter {\n  height: 100%;\n  flex-basis: 0;\n  position: relative;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter .piano-key {\n  height: 60%;\n  position: absolute;\n  left: 0;\n  top:0;\n  background: #333;\n  transform: translateX(-50%);\n}\n.lite-piano-ui-container .piano-key-outer.alter .piano-key.playing {\n  background: #999;\n}\n", ""]);
+exports.push([module.i, ".lite-piano-ui-container {\n  height: 140px;\n  width: 100%;\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n\n.lite-piano-ui-container .piano-key-outer {\n  height: 100%;\n  flex-basis: 2%;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key {\n  border: 1px solid #333;\n  height: 100%;\n  transition: all .2s ease-out;\n  background: #fff;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key.playing {\n  background: #bbb;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter {\n  height: 100%;\n  flex-basis: 0;\n  position: relative;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter .piano-key {\n  height: 60%;\n  position: absolute;\n  left: 0;\n  top:0;\n  background: #333;\n  transform: translateX(-50%);\n}\n.lite-piano-ui-container .piano-key-outer.alter .piano-key.playing {\n  background: #999;\n}\n\n\n.music-test-measure {\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n.music-test-measure-panel {\n  margin-bottom: 12px;\n}\n.music-test-staff {\n  flex-basis: 100%;\n  text-align: center;\n  border: 1px solid #666;\n}\n.music-test-measure-title {\n  text-align: center;\n  background: #666;\n  height: 32px;\n  line-height: 32px;\n  color: #fff;\n}\n\n.music-test-note.played {\n  background: #ccc;\n  color: #fff;\n}", ""]);
 
 // exports
 
@@ -909,150 +1088,6 @@ __webpack_require__.r(__webpack_exports__);
     {step: 'C', octave: 8, alter: 0},
   ]
 });
-
-/***/ }),
-
-/***/ "./src/demo/ui.css":
-/*!*************************!*\
-  !*** ./src/demo/ui.css ***!
-  \*************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
-
-
-var content = __webpack_require__(/*! !../../node_modules/css-loader!./ui.css */ "./node_modules/css-loader/index.js!./src/demo/ui.css");
-
-if(typeof content === 'string') content = [[module.i, content, '']];
-
-var transform;
-var insertInto;
-
-
-
-var options = {"hmr":true}
-
-options.transform = transform
-options.insertInto = undefined;
-
-var update = __webpack_require__(/*! ../../node_modules/style-loader/lib/addStyles.js */ "./node_modules/style-loader/lib/addStyles.js")(content, options);
-
-if(content.locals) module.exports = content.locals;
-
-if(false) {}
-
-/***/ }),
-
-/***/ "./src/demo/ui.js":
-/*!************************!*\
-  !*** ./src/demo/ui.js ***!
-  \************************/
-/*! exports provided: default */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return PianoUI; });
-/* harmony import */ var _index_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../index.js */ "./src/index.js");
-/* harmony import */ var _ui_css__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./ui.css */ "./src/demo/ui.css");
-/* harmony import */ var _ui_css__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(_ui_css__WEBPACK_IMPORTED_MODULE_1__);
-
-
-
-
-class PianoUI {
-  constructor() {
-    this.piano = new _index_js__WEBPACK_IMPORTED_MODULE_0__["default"]();
-    this.aniTimmer = {};
-  }
-
-  initPiano() {
-    return new Promise((resolve, reject) => {
-      this.piano.resume().then(() => {
-        return this.piano.initAllSound();
-      }).then(() => {
-        resolve(this.piano);
-      }).catch(() => {
-        reject();
-      });
-    });
-  }
-
-  bindDomEvent(element) {
-    const self = this;
-    element.addEventListener('click', e => {
-      if (!e || !e.target) {
-        return;
-      }
-      const step = e.target.getAttribute('data-step');
-      const octave = parseInt(e.target.getAttribute('data-octave'));
-      const alter = parseInt(e.target.getAttribute('data-alter'));
-      console.log(step, octave, alter);
-      self.playOneShot(step, octave, alter);
-    });
-  }
-
-  render(element) {
-    if (!element) {
-      return;
-    }
-    const keyboard = this.piano.keyboard;
-    let html = '<div class="lite-piano-ui-container">';
-    keyboard.forEach(item => {
-      html += `<div class="piano-key-outer ${item.alter ? 'alter' : ''}">`
-      html += `<div class="piano-key"
-                id="${item.step}-${item.octave}-${item.alter}"
-                data-step="${item.step}" 
-                data-octave="${item.octave}" 
-                data-alter="${item.alter}">
-              </div></div>`;
-    });
-    html += '</div>';
-    element.innerHTML = html;
-
-    const onResize = () => {
-      this.refreshAlterKey(element);
-    }
-    
-    // resize to calculate black key to show.
-    window.removeEventListener('resize', onResize);
-    window.addEventListener('resize', onResize);
-
-    this.refreshAlterKey(element);
-  }
-
-  playOneShot(step, octave, alter) {
-    if (!step || !octave) {
-      return;
-    }
-    const id = `${step}-${octave}-${alter ? 1 : 0}`;
-    const keyDom = document.getElementById(id);
-    if (!keyDom) {
-      return;
-    }
-
-    keyDom.classList.add('playing');
-    this.piano.oneShot(step, octave, alter);
-    try {
-      clearTimeout(this.aniTimmer[id]);
-    } catch (e) {}
-    this.aniTimmer[id] = setTimeout(() => {
-      keyDom.classList.remove('playing');
-    }, 300);
-  }
-
-  refreshAlterKey(element) {
-    if (!element) {
-      return;
-    }
-    const alterKeyWidth = element.offsetWidth / 86;
-    const keys = element.querySelectorAll('.piano-key-outer.alter .piano-key');
-    keys && keys.forEach(key => {
-      key.style.width = alterKeyWidth + 'px';
-    });
-  }
-}
-
-window.PianoUI = PianoUI;
 
 /***/ }),
 
