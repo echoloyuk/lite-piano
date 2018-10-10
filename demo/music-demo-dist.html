@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+  <title>lite-piano Demo</title>
+  <style>
+  body {
+    padding-top: 150px;
+  }
+  #piano {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+  }
+  .title {
+    font-size: 32px;
+    text-align: center;
+  }
+  #play {
+    width: 80px;
+    height: 80px;
+    line-height: 80px;
+    text-align: center;
+    margin: 20px auto;
+    border: 1px solid #333;
+    border-radius: 40px;
+    cursor: pointer;
+    transition: all .3s;
+  }
+  #play:hover {
+    background-color: #333;
+    color: #fff;
+  }
+  #play.played {
+    background-color: #999;
+    cursor: not-allowed;
+  }
+  </style>
+</head>
+<body>
+  <div id="piano"></div>
+  <div class="name-panel">
+    <div class="title">Demo: Cannon in D</div>
+    <div id="play">Play</div>
+    <div style="text-align: center">
+      <a class="" href="./musicxml/cannonD_all.xml">See Cannon in D MusicXML source</a>
+    </div>
+  </div>
+  <div id="list"></div>
+  <script src="../dist/ui.js"></script>
+  <script src="../dist/util.js"></script>
+  <script>
+  window.onload = () => {
+    const piano = new window.PianoUI();
+    const pianoDom = document.getElementById('piano');
+    const playDom = document.getElementById('play');
+    piano.render(pianoDom);
+    piano.initPiano().then(() => {
+      piano.bindDomEvent(pianoDom);
+    });
+    
+    let playingObj;
+    let startTime;
+    let finalObj;
+    
+    // const url = '/musicxml/happybirthday.xml';
+    const url = './musicxml/cannonD_all.xml';
+
+    // fetch xml
+    fetch(url).then(res => res.text()).then(text => {
+      const musicObj = window.PianoUtil.xmlToJson(text);
+      console.log(musicObj);
+      playingObj = window.PianoUtil.getPlayingObject(musicObj);
+      finalObj = window.PianoUtil.getPlayingTimeObject(playingObj, 1000);
+      piano.renderMusicObjTest(playingObj, document.getElementById('list'));
+      console.log(finalObj);
+    });
+    
+    playDom.addEventListener('click', () => {
+      if (playDom.classList.contains('played')) {
+        console.log('Already played');
+        return;
+      }
+      console.log(piano.piano.context.currentTime);
+      startTime = piano.piano.context.currentTime * 1000;
+      looper();
+      playDom.classList.add('played');
+      playDom.innerHTML = 'playing';
+    });
+
+    function looper() {
+      const tmpArr = [];
+      const context = piano.piano.context;
+      const offest = Math.floor(context.currentTime * 1000 - startTime);
+      let finished = true;
+
+      finalObj.forEach(item => {
+        if (!item.played && item.timeStamp <= offest) {
+          tmpArr.push(item);
+          item.played = true;
+        }
+        if (!item.played) {
+          finished = false;
+        }
+      });
+      
+      if (tmpArr.length) {
+        tmpArr.forEach(item => {
+          piano.playOneShot(item.step, parseInt(item.octave), parseInt(item.alter));
+          const uid = item.uid;
+          document.getElementById(`note_${uid}`).classList.add('played');
+        });
+      }
+
+      if (!finished) {
+        requestAnimationFrame(looper);
+      } else {
+        console.log('finish');
+        playDom.innerHTML = 'finished';
+      }
+    }
+  }
+  </script>
+</body>
+</html>
