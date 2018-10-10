@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <meta name="App-Config" content="fullscreen=yes,useHistoryState=yes,transition=yes" />
+  <meta content=yes name=apple-mobile-web-app-capable />
+  <meta content=yes name=apple-touch-fullscreen />
+  <meta content="telephone=no,email=no" name=format-detection />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="HandheldFriendly" content="true">
   <title>lite-piano Demo</title>
   <style>
   body {
@@ -14,6 +20,15 @@
     top: 0;
     left: 0;
     right: 0;
+    height: 18vh;
+  }
+  .m-panel {
+    position: fixed;
+    top: 20vh;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: auto;
   }
   .title {
     font-size: 32px;
@@ -38,28 +53,68 @@
     background-color: #999;
     cursor: not-allowed;
   }
+  #loading-panel {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+  }
+  #loading-panel .loading-mask {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: #000;
+    opacity: .6;
+    z-index: 1001;
+  }
+  #loading-panel .loading-info {
+    position: absolute;
+    z-index: 1002;
+    border: 1px solid #000;
+    background: #fff;
+    max-width: 80vw;
+    padding: 20px;
+    left: 50%;
+    top: 50%;
+    line-height: 1.6em;
+    transform: translate(-50%, -50%);
+  }
   </style>
 </head>
 <body>
-  <div id="piano"></div>
-  <div class="name-panel">
-    <div class="title">Demo: Cannon in D</div>
-    <div id="play">Play</div>
-    <div style="text-align: center">
-      <a class="" href="//raw.githubusercontent.com/echoloyuk/lite-piano/master/demo/musicxml/cannonD_all.xml">See Cannon in D MusicXML source</a>
-    </div>
+  <div id="loading-panel">
+    <div class="loading-mask"></div>
+    <div class="loading-info">需要加载3.5M左右的钢琴基础音，建议您在wifi环境下使用，正在加载...</div>
   </div>
-  <div id="list"></div>
-  <script src="//raw.githubusercontent.com/echoloyuk/lite-piano/master/dist/ui.js"></script>
-  <script src="//raw.githubusercontent.com/echoloyuk/lite-piano/master/dist/util.js"></script>
+  <div id="piano"></div>
+  <div class="m-panel">
+    <div class="name-panel">
+        <div class="title">Demo: Cannon in D</div>
+        <div id="play">Play</div>
+        <div style="text-align: center">
+          <a target="_blank" href="./musicxml/cannonD_all.xml">See Cannon in D MusicXML source</a>
+          <br>
+          <a target="_blank" href="./others/cannonD.pdf">See Cannon in D pdf source</a>
+        </div>
+      </div>
+      <div id="list"></div>
+  </div>
+  <script src="/ui.js"></script>
+  <script src="/util.js"></script>
   <script>
   window.onload = () => {
     const piano = new window.PianoUI();
     const pianoDom = document.getElementById('piano');
     const playDom = document.getElementById('play');
+    const loading = document.getElementById('loading-panel');
     piano.render(pianoDom);
     piano.initPiano().then(() => {
       piano.bindDomEvent(pianoDom);
+      loading.style.display = 'none';
     });
     
     let playingObj;
@@ -67,7 +122,7 @@
     let finalObj;
     
     // const url = '/musicxml/happybirthday.xml';
-    const url = '//raw.githubusercontent.com/echoloyuk/lite-piano/master/demo/musicxml/cannonD_all.xml';
+    const url = '/musicxml/cannonD_all.xml';
 
     // fetch xml
     fetch(url).then(res => res.text()).then(text => {
