@@ -86,7 +86,7 @@ export function getPlayingTimeObject(sourceObj, quaterTime) {
           step: note.step,
           octave: note.octave,
           alter: note.alter,
-          timeStamp: time,
+          timeStamp: note.timeStamp,
           played: false
         });
         if (!note.chord) {

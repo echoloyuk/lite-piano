@@ -32,7 +32,7 @@
     let finalObj;
     
     // const url = '/musicxml/happybirthday.xml';
-    const url = '/musicxml/cannonD.xml';
+    const url = '/musicxml/cannonD_all.xml';
 
     // fetch xml
     fetch(url).then(res => res.text()).then(text => {
@@ -41,7 +41,7 @@
       playingObj = window.PianoUtil.getPlayingObject(musicObj);
       finalObj = window.PianoUtil.getPlayingTimeObject(playingObj, 1000);
       renderMusicObjTest(playingObj, document.getElementById('list'));
-      console.log(playingObj);
+      console.log(finalObj);
       // renderMusicObj(finalObj, document.getElementById('list'));
     });
     
