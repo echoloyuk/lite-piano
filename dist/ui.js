@@ -355,7 +355,7 @@ exports = module.exports = __webpack_require__(/*! ../../node_modules/css-loader
 
 
 // module
-exports.push([module.i, ".lite-piano-ui-container {\n  height: 140px;\n  width: 100%;\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n\n.lite-piano-ui-container .piano-key-outer {\n  height: 100%;\n  flex-basis: 2%;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key {\n  border: 1px solid #333;\n  height: 100%;\n  transition: all .2s ease-out;\n  background: #fff;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key.playing {\n  background: #bbb;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter {\n  height: 100%;\n  flex-basis: 0;\n  position: relative;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter .piano-key {\n  height: 60%;\n  position: absolute;\n  left: 0;\n  top:0;\n  background: #333;\n  transform: translateX(-50%);\n}\n.lite-piano-ui-container .piano-key-outer.alter .piano-key.playing {\n  background: #999;\n}\n\n\n.music-test-measure {\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n.music-test-measure-panel {\n  margin-bottom: 12px;\n}\n.music-test-staff {\n  flex-basis: 100%;\n  text-align: center;\n  border: 1px solid #666;\n}\n.music-test-measure-title {\n  text-align: center;\n  background: #666;\n  height: 32px;\n  line-height: 32px;\n  color: #fff;\n}\n\n.music-test-note.played {\n  background: #ccc;\n  color: #fff;\n}", ""]);
+exports.push([module.i, ".lite-piano-ui-container {\n  height: 100%;\n  width: 100%;\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n\n.lite-piano-ui-container .piano-key-outer {\n  height: 100%;\n  flex-basis: 2%;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key {\n  border: 1px solid #333;\n  height: 100%;\n  transition: all .2s ease-out;\n  background: #fff;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key.playing {\n  background: #bbb;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter {\n  height: 100%;\n  flex-basis: 0;\n  position: relative;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter .piano-key {\n  height: 60%;\n  position: absolute;\n  left: 0;\n  top:0;\n  background: #333;\n  transform: translateX(-50%);\n}\n.lite-piano-ui-container .piano-key-outer.alter .piano-key.playing {\n  background: #999;\n}\n\n\n.music-test-measure {\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n.music-test-measure-panel {\n  margin-bottom: 12px;\n}\n.music-test-staff {\n  flex-basis: 100%;\n  text-align: center;\n  border: 1px solid #666;\n}\n.music-test-measure-title {\n  text-align: center;\n  background: #666;\n  height: 32px;\n  line-height: 32px;\n  color: #fff;\n}\n\n.music-test-note.played {\n  background: #ccc;\n  color: #fff;\n}", ""]);
 
 // exports
 
@@ -1214,6 +1214,11 @@ class LitePiano {
       return;
     }
     step = step.toUpperCase();
+
+    /**
+     * Since E and B do not have black keys on the piano, but you can still make adjustments on E and B. 
+     * The result of alter is F in same octave and C in a higher octave.
+     */
     if (alter === 1) {
       if (step === 'E') {
         step = 'F';
