@@ -46,12 +46,12 @@
     <div class="title">Demo: Cannon in D</div>
     <div id="play">Play</div>
     <div style="text-align: center">
-      <a class="" href="./musicxml/cannonD_all.xml">See Cannon in D MusicXML source</a>
+      <a class="" href="//raw.githubusercontent.com/echoloyuk/lite-piano/master/demo/musicxml/cannonD_all.xml">See Cannon in D MusicXML source</a>
     </div>
   </div>
   <div id="list"></div>
-  <script src="../dist/ui.js"></script>
-  <script src="../dist/util.js"></script>
+  <script src="//raw.githubusercontent.com/echoloyuk/lite-piano/master/dist/ui.js"></script>
+  <script src="//raw.githubusercontent.com/echoloyuk/lite-piano/master/dist/util.js"></script>
   <script>
   window.onload = () => {
     const piano = new window.PianoUI();
@@ -67,7 +67,7 @@
     let finalObj;
     
     // const url = '/musicxml/happybirthday.xml';
-    const url = './musicxml/cannonD_all.xml';
+    const url = '//raw.githubusercontent.com/echoloyuk/lite-piano/master/demo/musicxml/cannonD_all.xml';
 
     // fetch xml
     fetch(url).then(res => res.text()).then(text => {
