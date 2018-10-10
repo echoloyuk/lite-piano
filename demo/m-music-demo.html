@@ -112,9 +112,9 @@
     const playDom = document.getElementById('play');
     const loading = document.getElementById('loading-panel');
     piano.render(pianoDom);
+    loading.style.display = 'none';
     piano.initPiano().then(() => {
       piano.bindDomEvent(pianoDom);
-      loading.style.display = 'none';
     });
     
     let playingObj;
