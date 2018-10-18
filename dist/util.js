@@ -101,46 +101,51 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "getPlayingTimeObject", function() { return getPlayingTimeObject; });
 /* harmony import */ var xml_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! xml-js */ "./node_modules/xml-js/lib/index.js");
 /* harmony import */ var xml_js__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(xml_js__WEBPACK_IMPORTED_MODULE_0__);
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; var ownKeys = Object.keys(source); if (typeof Object.getOwnPropertySymbols === 'function') { ownKeys = ownKeys.concat(Object.getOwnPropertySymbols(source).filter(function (sym) { return Object.getOwnPropertyDescriptor(source, sym).enumerable; })); } ownKeys.forEach(function (key) { _defineProperty(target, key, source[key]); }); } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
 
 
 function xmlToJson(xml, option) {
-  const res = xml_js__WEBPACK_IMPORTED_MODULE_0___default.a.xml2json(xml, {
-    compact: true,
-    ...option
-  });
+  var res = xml_js__WEBPACK_IMPORTED_MODULE_0___default.a.xml2json(xml, _objectSpread({
+    compact: true
+  }, option));
   return JSON.parse(res);
 }
-
 function getPlayingObject(sourceObj) {
   if (!sourceObj) {
     return;
   }
-  const result = {
+
+  var result = {
     playingList: []
-  };
+  }; // get division
 
-  // get division
-  const division = parseInt(sourceObj['score-partwise']['part']['measure'][0]['attributes']['divisions']._text);
+  var division = parseInt(sourceObj['score-partwise']['part']['measure'][0]['attributes']['divisions']._text); // get all notes
 
-  // get all notes
-  const measures = sourceObj['score-partwise']['part']['measure'];
-  measures.forEach(measureItem => {
-    const currMeasure = {};
+  var measures = sourceObj['score-partwise']['part']['measure'];
+  measures.forEach(function (measureItem) {
+    var currMeasure = {};
+
     if (!measureItem.note) {
       return;
     }
-    measureItem.note.forEach(noteItem => {
-      let staffName = 'default';
+
+    measureItem.note.forEach(function (noteItem) {
+      var staffName = 'default';
+
       if (noteItem.staff) {
         staffName = noteItem.staff._text;
       }
+
       if (!currMeasure[staffName]) {
         currMeasure[staffName] = [];
       }
+
       currMeasure[staffName].push({
         step: noteItem.pitch.step._text,
         octave: noteItem.pitch.octave._text,
-        alter: (noteItem.pitch.alter && noteItem.pitch.alter._text) || '0',
+        alter: noteItem.pitch.alter && noteItem.pitch.alter._text || '0',
         duration: noteItem.duration._text,
         stay: parseInt(noteItem.duration._text) / division,
         chord: noteItem.chord ? true : false
@@ -148,46 +153,42 @@ function getPlayingObject(sourceObj) {
     });
     result.playingList.push(currMeasure);
   });
-
   return result;
 }
-
 function dealPlayingTimeObject(sourceObj, quaterTime) {
-  sourceObj.playingList.forEach(listItem => {
-    Object.keys(listItem).forEach(staffName => {
-      const curStaffList = listItem[staffName];
-      let time = 0;
-      curStaffList.forEach(note => {
+  sourceObj.playingList.forEach(function (listItem) {
+    Object.keys(listItem).forEach(function (staffName) {
+      var curStaffList = listItem[staffName];
+      var time = 0;
+      curStaffList.forEach(function (note) {
         note.timeStamp = time;
         note.played = false;
         time += quaterTime * note.stay;
       });
     });
   });
-
   return sourceObj;
 }
-
 function getPlayingTimeObject(sourceObj, quaterTime) {
-  const result = [];
-  let totalTime = 0;
-  let uid = 0;
-  sourceObj.playingList.forEach((listItem, listIndex) => {
-    let listTime = totalTime;
-    Object.keys(listItem).forEach(staffName => {
-      const curStaffList = listItem[staffName];
-      let time = totalTime;
-      let oldTime = time;
-      curStaffList.forEach(note => {
+  var result = [];
+  var totalTime = 0;
+  var uid = 0;
+  sourceObj.playingList.forEach(function (listItem, listIndex) {
+    var listTime = totalTime;
+    Object.keys(listItem).forEach(function (staffName) {
+      var curStaffList = listItem[staffName];
+      var time = totalTime;
+      var oldTime = time;
+      curStaffList.forEach(function (note) {
         if (note.chord) {
           note.timeStamp = oldTime;
         } else {
           note.timeStamp = time;
         }
+
         note.played = false;
         note.uid = uid;
         uid++;
-
         result.push({
           step: note.step,
           octave: note.octave,
@@ -197,27 +198,26 @@ function getPlayingTimeObject(sourceObj, quaterTime) {
           uid: note.uid,
           measureNumber: listIndex
         });
+
         if (!note.chord) {
           oldTime = time;
           time += quaterTime * note.stay;
         }
+
         if (time > listTime) {
           listTime = time;
         }
-        
       });
     });
     totalTime = listTime;
   });
-
   return result;
 }
-
 window.PianoUtil = {
-  xmlToJson,
-  getPlayingObject,
-  dealPlayingTimeObject,
-  getPlayingTimeObject
+  xmlToJson: xmlToJson,
+  getPlayingObject: getPlayingObject,
+  dealPlayingTimeObject: dealPlayingTimeObject,
+  getPlayingTimeObject: getPlayingTimeObject
 };
 
 /***/ }),
