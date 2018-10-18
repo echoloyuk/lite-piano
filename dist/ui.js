@@ -239,7 +239,7 @@ class PianoUI {
     let html = '<div class="music-test-panel">';
   
     obj.playingList.forEach((listItem, listIndex) => {
-      html += `<div class="music-test-measure-panel">`;
+      html += `<div class="music-test-measure-panel" id="measure_${listIndex}">`;
       html += `<div class="music-test-measure-title">No.${listIndex + 1} measure.</div>`;
       html += `<div class="music-test-measure" data-index="${listIndex}">`;
       Object.keys(listItem).forEach(staffItemName => {
@@ -355,7 +355,7 @@ exports = module.exports = __webpack_require__(/*! ../../node_modules/css-loader
 
 
 // module
-exports.push([module.i, ".lite-piano-ui-container {\n  height: 100%;\n  width: 100%;\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n\n.lite-piano-ui-container .piano-key-outer {\n  height: 100%;\n  flex-basis: 2%;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key {\n  border: 1px solid #333;\n  height: 100%;\n  transition: all .2s ease-out;\n  background: #fff;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key.playing {\n  background: #bbb;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter {\n  height: 100%;\n  flex-basis: 0;\n  position: relative;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter .piano-key {\n  height: 60%;\n  position: absolute;\n  left: 0;\n  top:0;\n  background: #333;\n  transform: translateX(-50%);\n}\n.lite-piano-ui-container .piano-key-outer.alter .piano-key.playing {\n  background: #999;\n}\n\n\n.music-test-measure {\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n.music-test-measure-panel {\n  margin-bottom: 12px;\n}\n.music-test-staff {\n  flex-basis: 100%;\n  text-align: center;\n  border: 1px solid #666;\n}\n.music-test-measure-title {\n  text-align: center;\n  background: #666;\n  height: 32px;\n  line-height: 32px;\n  color: #fff;\n}\n\n.music-test-note.played {\n  background: #ccc;\n  color: #fff;\n}", ""]);
+exports.push([module.i, ".lite-piano-ui-container {\n  height: 100%;\n  width: 100%;\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n\n.lite-piano-ui-container .piano-key-outer {\n  height: 100%;\n  flex-basis: 2%;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key {\n  border: 1px solid #333;\n  height: 100%;\n  transition: all .2s ease-out;\n  background: #fff;\n}\n.lite-piano-ui-container .piano-key-outer .piano-key.playing {\n  background: #bbb;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter {\n  height: 100%;\n  flex-basis: 0;\n  position: relative;\n}\n\n.lite-piano-ui-container .piano-key-outer.alter .piano-key {\n  height: 60%;\n  position: absolute;\n  left: 0;\n  top:0;\n  background: #333;\n  transform: translateX(-50%);\n}\n.lite-piano-ui-container .piano-key-outer.alter .piano-key.playing {\n  background: #999;\n}\n\n\n.music-test-measure {\n  display: flex;\n  justify-content: space-between;\n  align-items: stretch;\n}\n.music-test-panel {\n  position: relative;\n}\n.music-test-measure-panel {\n  margin-bottom: 12px;\n}\n.music-test-staff {\n  flex-basis: 100%;\n  text-align: center;\n  border: 1px solid #666;\n}\n.music-test-measure-title {\n  text-align: center;\n  background: #666;\n  height: 32px;\n  line-height: 32px;\n  color: #fff;\n}\n\n.music-test-note.played {\n  background: #ccc;\n  color: #fff;\n}", ""]);
 
 // exports
 

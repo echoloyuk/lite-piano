@@ -172,7 +172,7 @@ function getPlayingTimeObject(sourceObj, quaterTime) {
   const result = [];
   let totalTime = 0;
   let uid = 0;
-  sourceObj.playingList.forEach(listItem => {
+  sourceObj.playingList.forEach((listItem, listIndex) => {
     let listTime = totalTime;
     Object.keys(listItem).forEach(staffName => {
       const curStaffList = listItem[staffName];
@@ -194,7 +194,8 @@ function getPlayingTimeObject(sourceObj, quaterTime) {
           alter: note.alter,
           timeStamp: note.timeStamp,
           played: false,
-          uid: note.uid
+          uid: note.uid,
+          measureNumber: listIndex
         });
         if (!note.chord) {
           oldTime = time;

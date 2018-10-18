@@ -44,6 +44,9 @@
   justify-content: space-between;
   align-items: stretch;
 }
+.music-test-panel {
+  position: relative;
+}
 .music-test-measure-panel {
   margin-bottom: 12px;
 }

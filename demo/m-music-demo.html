@@ -91,7 +91,7 @@
     <div class="loading-info">需要加载3.5M左右的钢琴基础音，建议您在wifi环境下使用，正在加载...</div>
   </div>
   <div id="piano"></div>
-  <div class="m-panel">
+  <div class="m-panel" id="m-panel">
     <div class="name-panel">
         <div class="title">Demo: Cannon in D</div>
         <div id="play">Play</div>
@@ -105,6 +105,7 @@
   </div>
   <script src="/ui.js"></script>
   <script src="/util.js"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
   <script>
   window.onload = () => {
     const piano = new window.PianoUI();
@@ -120,6 +121,7 @@
     let playingObj;
     let startTime;
     let finalObj;
+    let tmpScrollTop;
     
     // const url = '/musicxml/happybirthday.xml';
     const url = '/musicxml/cannonD_all.xml';
@@ -129,7 +131,7 @@
       const musicObj = window.PianoUtil.xmlToJson(text);
       console.log(musicObj);
       playingObj = window.PianoUtil.getPlayingObject(musicObj);
-      finalObj = window.PianoUtil.getPlayingTimeObject(playingObj, 1000);
+      finalObj = window.PianoUtil.getPlayingTimeObject(playingObj, 900);
       piano.renderMusicObjTest(playingObj, document.getElementById('list'));
       console.log(finalObj);
     });
@@ -168,6 +170,18 @@
           const uid = item.uid;
           document.getElementById(`note_${uid}`).classList.add('played');
         });
+        const measureId = 'measure_' + tmpArr[0].measureNumber;
+        if (measureId) {
+          const measure = $('#' + measureId);
+          const panel = $('#m-panel');
+          if (tmpScrollTop !== measure.position().top + 100) {
+            panel.stop().animate({
+              scrollTop: measure.position().top + 100
+            });
+            tmpScrollTop = measure.position().top + 100;
+          }
+        }
+        console.log(tmpArr);
       }
 
       if (!finished) {

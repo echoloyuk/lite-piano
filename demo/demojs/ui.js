@@ -108,7 +108,7 @@ export default class PianoUI {
     let html = '<div class="music-test-panel">';
   
     obj.playingList.forEach((listItem, listIndex) => {
-      html += `<div class="music-test-measure-panel">`;
+      html += `<div class="music-test-measure-panel" id="measure_${listIndex}">`;
       html += `<div class="music-test-measure-title">No.${listIndex + 1} measure.</div>`;
       html += `<div class="music-test-measure" data-index="${listIndex}">`;
       Object.keys(listItem).forEach(staffItemName => {
