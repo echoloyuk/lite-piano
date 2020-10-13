@@ -2,6 +2,8 @@
 
 基于JavaScript Web Audio API编写的迷你钢琴组件，该组件用于在Web APP中使用Audio Context播放钢琴的基本琴键的声音。
 
+当然这只是一个基础库，你可以使用它来做很多上层应用。这里补充一个[在线Demo](https://www.himachi.cn/demo/lite-piano/index.html)。Demo页面引入了一个《卡农C大调》的[musicXML](https://en.wikipedia.org/wiki/MusicXML)乐谱，并解析成lite-piano可识别的参数，再使用setTimeout将它演奏出来。（Demo示例没有做更深入的网络优化，可能需要大约3.5M网络流量来加载音频和乐谱，请耐心等待加载完毕后点击Play）
+
 ## How to install
 
 ### 直接使用源码
