@@ -2,7 +2,7 @@
 
 A mini piano component based on the JavaScript Web Audio API, for playing the basic tone of a piano using the Audio Context in a web app.
 
-The Lite-piano is a basic library, you can use it to do your applications logic or any other piano-like music web apps. This is a [Demo](https://www.himachi.cn/demo/lite-piano/index.html), which introduces a [musicXML](https://en.wikipedia.org/wiki/MusicXML) score of "Canon C Major" and parses it into lite-piano recognizable parameters. we uses setTimeout to play it automatically. (The demo did not do extra network optimization. It may take about 3.5Mb to load audio and music scores. Please wait patiently and click Play after loading.)
+The Lite-piano is a basic library, you can use it to do your applications logic or any other piano-like music web apps. This is a [Demo](https://www.himachi.cn/demo/lite-piano/index.html), which introduces a [musicXML](https://en.wikipedia.org/wiki/MusicXML) score of "Canon D Major" and parses it into lite-piano recognizable parameters. we uses setTimeout to play it automatically. (The demo did not do extra network optimization. It may take about 3.5Mb to load audio and music scores. Please wait patiently and click Play after loading.)
 
 See Readme with [中文版](./README_zh_cn.md)
 
