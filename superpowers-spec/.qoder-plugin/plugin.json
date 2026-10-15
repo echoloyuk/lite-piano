@@ -1,0 +1,18 @@
+{
+  "name": "superpowers-spec",
+  "displayName": "Superpowers Spec（需求规格三件套）",
+  "version": "7.0.0",
+  "description": "Requirement-spec workflow converted from obra/superpowers: brainstorming, writing-plans, executing-plans.",
+  "descriptionZh": "由 obra/superpowers 转换的需求 spec 工作流：brainstorming（需求澄清 → 设计文档）、writing-plans（设计 → 实施计划）、executing-plans（计划逐任务执行）。",
+  "author": {
+    "name": "Jesse Vincent (obra), converted by Qoder create-plugin"
+  },
+  "homepage": "https://github.com/obra/superpowers",
+  "repository": "https://github.com/obra/superpowers",
+  "license": "MIT",
+  "logo": "./assets/avatar.svg",
+  "keywords": ["qoder-plugin", "skill", "spec", "brainstorming", "planning"],
+  "category": "developer-tools",
+  "tags": ["skill", "spec-driven-development"],
+  "skills": "./skills/"
+}

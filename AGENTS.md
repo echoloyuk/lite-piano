@@ -25,6 +25,20 @@ Guidance for AI coding agents working in this repository. Follow this file befor
 - `npm run build` — bundle `src/index.js` + demo entries into `dist/`.
 - `npm test` — **no test suite exists**; the script exits 1. Do not claim test coverage. Verify behavior manually in a browser via the demo pages.
 
+## Requirement Specs (superpowers-spec)
+
+This repo vendors a converted subset of [obra/superpowers](https://github.com/obra/superpowers) as its requirement-spec toolchain: plugin root `superpowers-spec/`, exposed to the agent host via the `.qoder/skills` symlink.
+
+1. **`brainstorming`** — MUST run before any creative work (new features, behavior changes, new plans). Clarify the real requirement through questions first. Output: design doc at `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`.
+2. **`writing-plans`** — once a spec/design exists, break it into a bite-sized implementation plan. Output: `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`.
+3. **`executing-plans`** — execute a written plan task by task in the current session.
+
+Rules:
+
+- Do not jump into implementation of a new feature without the brainstorming → spec step.
+- Skill references to `superpowers:*` skills not vendored here (TDD, systematic-debugging, finishing-a-development-branch, etc.) are unavailable in this repo — continue with the general flow instead.
+- Commit spec docs, plan docs, and the code they describe together in the same change.
+
 ## Conventions & Invariants
 
 - Code style: ES modules, 2-space indentation, single quotes, semicolons. Match the existing files.
