@@ -495,7 +495,17 @@ function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _d
 
 var DEFAULT_CDN_URL = 'https://mac-blog.oss-cn-beijing.aliyuncs.com/lite-piano/fluidr3';
 var LOAD_CONCURRENCY = 6;
-var RELEASE_SECONDS = 0.08;
+var RELEASE_SECONDS = 0.3;
+var MIN_FADE_SECONDS = 0.05;
+var MIN_NOTE_SECONDS = 0.1;
+var MIN_DECAY_SECONDS = 0.3;
+var SUSTAIN_SECONDS = 10;
+var LOOP_START_RATIO = 0.45;
+var LOOP_END_RATIO = 0.95;
+var LOOP_BLEND_SECONDS = 0.08;
+var SWAP_SECONDS = 0.06;
+var DECIDE_BEFORE_END_SECONDS = 0.05;
+var LN_AUDIBLE = Math.log(1000);
 
 var LitePiano =
 /*#__PURE__*/
@@ -673,6 +683,7 @@ function () {
 
       var t = this._ensureContext().currentTime;
 
+      voice.gain.gain.cancelScheduledValues(t);
       voice.gain.gain.setValueAtTime(voice.gain.gain.value, t);
       voice.gain.gain.linearRampToValueAtTime(0, t + RELEASE_SECONDS);
 
@@ -690,7 +701,10 @@ function () {
      * @param {string} step C D E F G A B
      * @param {number} octave 0..8
      * @param {number} alter 1 = sharp, 0 = natural, -1 = flat
-     * @param {number} duration seconds; omitted = ring to natural decay
+     * @param {number} duration seconds the note lasts. Shorter than the sample =
+     * cut with a smooth fade (staccato); longer = seamlessly looped and decayed
+     * to silence at `duration`. Pedal down at note-off extends it to
+     * SUSTAIN_SECONDS. Omitted = ring to natural decay.
      */
 
   }, {
@@ -722,7 +736,6 @@ function () {
 
       var source = context.createBufferSource();
       var gain = context.createGain();
-      source.buffer = this._buffers[name];
       source.connect(gain);
       gain.connect(context.destination);
       var voice = {
@@ -743,32 +756,154 @@ function () {
         }
       };
 
-      source.start(context.currentTime);
+      if (duration === undefined || duration === null) {
+        source.buffer = this._buffers[name];
+      } else {
+        var seconds = Math.max(Number(duration) || 0, MIN_NOTE_SECONDS);
+        var startedAt = context.currentTime;
+        var natural = this._buffers[name].duration;
+        var endAt = startedAt + seconds;
+        voice.startedAt = startedAt;
+        voice.seconds = seconds;
+        voice.natural = natural;
 
-      if (duration !== undefined && duration !== null) {
-        var seconds = Math.max(0, Number(duration) || 0);
-        var endAt = context.currentTime + seconds;
-        gain.gain.setValueAtTime(1, endAt);
-        gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
+        if (seconds > natural * LOOP_END_RATIO) {
+          // longer than the sample: seamlessly loop the sustain region and
+          // shape an exponential decay that reaches silence at `endAt`
+          source.buffer = this._createSustainBuffer(this._buffers[name]);
+          source.loop = true;
+          source.loopStart = natural * LOOP_START_RATIO;
+          source.loopEnd = natural * LOOP_END_RATIO;
+          var decayFrom = startedAt + natural * LOOP_END_RATIO;
+          var tc = Math.max((endAt - decayFrom) / LN_AUDIBLE, MIN_DECAY_SECONDS);
+          gain.gain.setValueAtTime(1, decayFrom);
+          gain.gain.setTargetAtTime(0, decayFrom, tc);
+        } else {
+          // shorter than the sample: hold full level until note-off, then fade
+          source.buffer = this._buffers[name];
+          var fade = Math.min(RELEASE_SECONDS, Math.max(MIN_FADE_SECONDS, seconds / 2));
+          voice.fade = fade;
+          gain.gain.setValueAtTime(1, endAt);
+          gain.gain.linearRampToValueAtTime(0, endAt + fade);
+        } // decide slightly before the fade runs so a held pedal cancels it seamlessly
+
+
         voice.timer = setTimeout(function () {
           voice.timer = null;
 
           if (_this2._pedalDown) {
-            gain.gain.cancelScheduledValues(0);
-            gain.gain.setValueAtTime(1, _this2._ensureContext().currentTime);
+            _this2._extendVoice(voice);
 
             _this2._sustained.add(voice);
           } else {
-            _this2._releaseVoice(voice);
+            voice.released = true;
+
+            try {
+              voice.source.stop(endAt + (voice.fade || 0) + 0.02);
+            } catch (e) {}
           }
-        }, seconds * 1000 + 100);
+        }, Math.max(0, seconds - DECIDE_BEFORE_END_SECONDS) * 1000);
       }
 
+      source.start(context.currentTime);
       return source;
     }
     /**
-     * Sustain pedal down. Note-offs arriving while the pedal is down are
-     * deferred until pedalUp(). Idempotent.
+     * Copy of the sample with an 80ms crossfade baked in just before
+     * loopEnd, morphing the loop tail into the material right before
+     * loopStart, so a [loopStart, loopEnd) loop wraps seamlessly.
+     */
+
+  }, {
+    key: "_createSustainBuffer",
+    value: function _createSustainBuffer(buffer) {
+      var context = this._ensureContext();
+
+      var loopStart = Math.floor(buffer.length * LOOP_START_RATIO);
+      var loopEnd = Math.floor(buffer.length * LOOP_END_RATIO);
+      var blend = Math.min(Math.floor(buffer.sampleRate * LOOP_BLEND_SECONDS), loopStart);
+      var out = context.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+
+      for (var ch = 0; ch < buffer.numberOfChannels; ch++) {
+        var data = buffer.getChannelData(ch);
+        var target = out.getChannelData(ch);
+        target.set(data);
+
+        for (var i = 0; i < blend; i++) {
+          var t = i / blend;
+          var idx = loopEnd - blend + i;
+          target[idx] = data[idx] * (1 - t) + data[loopStart - blend + i] * t;
+        }
+      }
+
+      return out;
+    }
+    /**
+     * A held pedal turns the note into a long one: keep it sounding for
+     * SUSTAIN_SECONDS from note-on. Swaps to the seamless loop if the
+     * voice is not looping yet, then re-shapes the decay to the new end.
+     */
+
+  }, {
+    key: "_extendVoice",
+    value: function _extendVoice(voice) {
+      var _this3 = this;
+
+      var context = this._ensureContext();
+
+      var now = context.currentTime;
+      var endAt = voice.startedAt + Math.max(voice.seconds, SUSTAIN_SECONDS);
+      var remaining = Math.max(endAt - now, MIN_DECAY_SECONDS);
+
+      if (!voice.source.loop) {
+        var oldSource = voice.source;
+        var oldGain = voice.gain;
+        var source = context.createBufferSource();
+        source.buffer = this._createSustainBuffer(oldSource.buffer);
+        source.loop = true;
+        source.loopStart = voice.natural * LOOP_START_RATIO;
+        source.loopEnd = voice.natural * LOOP_END_RATIO;
+        var gain = context.createGain();
+        source.connect(gain);
+        gain.connect(context.destination);
+
+        source.onended = function () {
+          _this3._sustained.delete(voice);
+
+          if (_this3._voices.get(voice.name) === voice) {
+            _this3._voices.delete(voice.name);
+          }
+        };
+
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(1, now + SWAP_SECONDS);
+        oldGain.gain.cancelScheduledValues(now);
+        oldGain.gain.setValueAtTime(1, now);
+        oldGain.gain.linearRampToValueAtTime(0, now + SWAP_SECONDS);
+        oldSource.onended = null;
+
+        try {
+          oldSource.stop(now + SWAP_SECONDS + 0.01);
+        } catch (e) {}
+
+        source.start(now, voice.natural * LOOP_START_RATIO);
+        voice.source = source;
+        voice.gain = gain;
+        gain.gain.setTargetAtTime(0, now + SWAP_SECONDS, remaining / LN_AUDIBLE);
+      } else {
+        var param = voice.gain.gain;
+        param.cancelScheduledValues(now);
+        param.setValueAtTime(param.value, now);
+        param.setTargetAtTime(0, now, remaining / LN_AUDIBLE);
+      }
+
+      try {
+        voice.source.stop(endAt + 0.02);
+      } catch (e) {}
+    }
+    /**
+     * Sustain pedal down. Notes whose note-off arrives while the pedal is
+     * down are held for SUSTAIN_SECONDS, or until pedalUp(). Idempotent.
      */
 
   }, {
@@ -783,12 +918,12 @@ function () {
   }, {
     key: "pedalUp",
     value: function pedalUp() {
-      var _this3 = this;
+      var _this4 = this;
 
       this._pedalDown = false;
 
       this._sustained.forEach(function (voice) {
-        return _this3._releaseVoice(voice);
+        return _this4._releaseVoice(voice);
       });
 
       this._sustained.clear();

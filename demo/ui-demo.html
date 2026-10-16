@@ -4,12 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link rel="icon" href="data:,">
   <title>Document</title>
+  <style>
+  #main {
+    height: 140px;
+  }
+  #pedal.on {
+    background: #333;
+    color: #fff;
+  }
+  </style>
 </head>
 <body>
   <div id="status">loading: 0 / 88</div>
   <div id="main"></div>
-  <button id="pedal" style="margin-top:12px;padding:8px 16px;">Sustain Pedal (hold, or hold Space)</button>
+  <button id="pedal" style="margin-top:12px;padding:8px 16px;">Sustain Pedal: OFF</button>
   <script src="/ui.js"></script>
   <script>
   window.onload = () => {
@@ -30,24 +40,29 @@
     });
 
     const pedalDom = document.getElementById('pedal');
-    const down = () => ui.piano.pedalDown();
-    const up = () => ui.piano.pedalUp();
+    let pedalOn = false;
+    pedalDom.addEventListener('click', () => {
+      pedalOn = !pedalOn;
+      if (pedalOn) {
+        ui.piano.pedalDown();
+      } else {
+        ui.piano.pedalUp();
+      }
+      pedalDom.classList.toggle('on', pedalOn);
+      pedalDom.textContent = pedalOn ? 'Sustain Pedal: ON' : 'Sustain Pedal: OFF';
+    });
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Space' && !e.repeat) {
         e.preventDefault();
-        down();
+        ui.piano.pedalDown();
       }
     });
     document.addEventListener('keyup', (e) => {
-      if (e.code === 'Space') {
-        up();
+      if (e.code === 'Space' && !pedalOn) {
+        ui.piano.pedalUp();
       }
     });
-    pedalDom.addEventListener('mousedown', down);
-    pedalDom.addEventListener('mouseup', up);
-    pedalDom.addEventListener('mouseleave', up);
-    pedalDom.addEventListener('touchstart', (e) => { e.preventDefault(); down(); });
-    pedalDom.addEventListener('touchend', up);
+    window.ui = ui;
   }
   </script>
 </body>

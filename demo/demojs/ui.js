@@ -30,7 +30,7 @@ export default class PianoUI {
       const octave = parseInt(e.target.getAttribute('data-octave'));
       const alter = parseInt(e.target.getAttribute('data-alter'));
       console.log(step, octave, alter);
-      self.playOneShot(step, octave, alter);
+      self.playOneShot(step, octave, alter, 1);
     });
   }
 
