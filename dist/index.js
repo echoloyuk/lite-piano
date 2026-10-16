@@ -746,16 +746,22 @@ function () {
       source.start(context.currentTime);
 
       if (duration !== undefined && duration !== null) {
-        var ms = Math.max(0, Number(duration) || 0) * 1000;
+        var seconds = Math.max(0, Number(duration) || 0);
+        var endAt = context.currentTime + seconds;
+        gain.gain.setValueAtTime(1, endAt);
+        gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
         voice.timer = setTimeout(function () {
           voice.timer = null;
 
           if (_this2._pedalDown) {
+            gain.gain.cancelScheduledValues(0);
+            gain.gain.setValueAtTime(1, _this2._ensureContext().currentTime);
+
             _this2._sustained.add(voice);
           } else {
             _this2._releaseVoice(voice);
           }
-        }, ms);
+        }, seconds * 1000 + 100);
       }
 
       return source;

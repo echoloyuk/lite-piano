@@ -46,6 +46,7 @@
   <div class="name-panel">
     <div class="title">Demo: Cannon in D</div>
     <div id="play">Play</div>
+    <div id="status" style="text-align: center">status: idle</div>
     <div style="text-align: center">
       <a class="" href="./musicxml/cannonD_all.xml">See Cannon in D MusicXML source</a>
     </div>
@@ -58,9 +59,18 @@
     const piano = new window.PianoUI();
     const pianoDom = document.getElementById('piano');
     const playDom = document.getElementById('play');
+    const statusDom = document.getElementById('status');
+    const progressTimer = setInterval(() => {
+      statusDom.textContent = `status: ${piano.piano.status}, loading: ${piano.piano.progress.loaded} / ${piano.piano.progress.total}`;
+    }, 200);
     piano.render(pianoDom);
     piano.initPiano().then(() => {
+      clearInterval(progressTimer);
+      statusDom.textContent = 'status: ready';
       piano.bindDomEvent(pianoDom);
+    }).catch(() => {
+      clearInterval(progressTimer);
+      statusDom.textContent = 'status: error - samples failed to load';
     });
     
     let playingObj;
@@ -83,6 +93,10 @@
     playDom.addEventListener('click', () => {
       if (playDom.classList.contains('played')) {
         console.log('Already played');
+        return;
+      }
+      if (piano.piano.status !== 'ready') {
+        console.log('Sounds are not ready yet');
         return;
       }
       console.log(piano.piano.context.currentTime);

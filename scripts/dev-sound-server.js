@@ -13,9 +13,16 @@ const MIME = {
 };
 
 http.createServer((req, res) => {
-  const urlPath = decodeURIComponent(req.url.split('?')[0]);
+  let urlPath;
+  try {
+    urlPath = decodeURIComponent(req.url.split('?')[0]);
+  } catch (e) {
+    res.writeHead(400);
+    res.end('bad request');
+    return;
+  }
   const file = path.join(root, urlPath);
-  if (!file.startsWith(root)) {
+  if (file !== root && !file.startsWith(root + path.sep)) {
     res.writeHead(403);
     res.end();
     return;
@@ -30,6 +37,6 @@ http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
     res.end(data);
   });
-}).listen(port, () => {
+}).listen(port, '127.0.0.1', () => {
   console.log(`serving ${root} at http://127.0.0.1:${port}`);
 });

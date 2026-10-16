@@ -88,7 +88,7 @@
 <body>
   <div id="loading-panel">
     <div class="loading-mask"></div>
-    <div class="loading-info">需要加载3.5M左右的钢琴基础音，建议您在wifi环境下使用，正在加载...</div>
+    <div class="loading-info" id="status">正在加载 88 个钢琴采样，建议您在 wifi 环境下使用，正在加载...</div>
   </div>
   <div id="piano"></div>
   <div class="m-panel" id="m-panel">
@@ -112,10 +112,19 @@
     const pianoDom = document.getElementById('piano');
     const playDom = document.getElementById('play');
     const loading = document.getElementById('loading-panel');
+    const statusDom = document.getElementById('status');
+    const progressTimer = setInterval(() => {
+      statusDom.textContent = `status: loading, ${piano.piano.progress.loaded} / ${piano.piano.progress.total}`;
+    }, 200);
     piano.render(pianoDom);
-    loading.style.display = 'none';
     piano.initPiano().then(() => {
+      clearInterval(progressTimer);
+      statusDom.textContent = 'status: ready';
+      loading.style.display = 'none';
       piano.bindDomEvent(pianoDom);
+    }).catch(() => {
+      clearInterval(progressTimer);
+      statusDom.textContent = 'status: error - 采样加载失败，请检查网络后刷新重试';
     });
     
     let playingObj;
@@ -139,6 +148,10 @@
     playDom.addEventListener('click', () => {
       if (playDom.classList.contains('played')) {
         console.log('Already played');
+        return;
+      }
+      if (piano.piano.status !== 'ready') {
+        console.log('Sounds are not ready yet');
         return;
       }
       console.log(piano.piano.context.currentTime);

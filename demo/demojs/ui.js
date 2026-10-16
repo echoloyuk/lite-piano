@@ -64,7 +64,7 @@ export default class PianoUI {
   }
 
   playOneShot(step, octave, alter, duration) {
-    if (!step || !octave) {
+    if (!step || isNaN(octave)) {
       return;
     }
     const id = `${step}-${octave}-${alter ? 1 : 0}`;

@@ -192,15 +192,20 @@ export default class LitePiano {
     source.start(context.currentTime);
 
     if (duration !== undefined && duration !== null) {
-      const ms = Math.max(0, Number(duration) || 0) * 1000;
+      const seconds = Math.max(0, Number(duration) || 0);
+      const endAt = context.currentTime + seconds;
+      gain.gain.setValueAtTime(1, endAt);
+      gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
       voice.timer = setTimeout(() => {
         voice.timer = null;
         if (this._pedalDown) {
+          gain.gain.cancelScheduledValues(0);
+          gain.gain.setValueAtTime(1, this._ensureContext().currentTime);
           this._sustained.add(voice);
         } else {
           this._releaseVoice(voice);
         }
-      }, ms);
+      }, seconds * 1000 + 100);
     }
     return source;
   }
