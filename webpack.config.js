@@ -1,11 +1,6 @@
 const path = require('path');
 
-module.exports = {
-  entry: {
-    index: './src/index.js',
-    ui: './demo/demojs/ui.js',
-    util: './demo/demojs/util.js'
-  },
+const shared = {
   mode: 'development',
   module: {
     rules: [
@@ -24,15 +19,40 @@ module.exports = {
       }
     ]
   },
-  output: {
-    filename: '[name].js',
-    path: path.resolve(__dirname, 'dist'),
-    publicPath: '/'
+  devtool: 'source-map'
+};
+
+module.exports = [
+  {
+    ...shared,
+    entry: {
+      index: './src/index.js'
+    },
+    output: {
+      filename: '[name].js',
+      path: path.resolve(__dirname, 'dist'),
+      publicPath: '/',
+      library: 'LitePiano',
+      libraryTarget: 'umd',
+      libraryExport: 'default',
+      globalObject: "typeof self !== 'undefined' ? self : this"
+    },
+    devServer: {
+      contentBase: './demo',
+      host: '0.0.0.0',
+      port: '9090'
+    }
   },
-  devtool: "source-map",
-  devServer: {
-    contentBase: './demo',
-    host: '0.0.0.0',
-    port: '9090'
+  {
+    ...shared,
+    entry: {
+      ui: './demo/demojs/ui.js',
+      util: './demo/demojs/util.js'
+    },
+    output: {
+      filename: '[name].js',
+      path: path.resolve(__dirname, 'dist'),
+      publicPath: '/'
+    }
   }
-}
+];

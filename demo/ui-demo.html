@@ -7,16 +7,47 @@
   <title>Document</title>
 </head>
 <body>
+  <div id="status">loading: 0 / 88</div>
   <div id="main"></div>
+  <button id="pedal" style="margin-top:12px;padding:8px 16px;">Sustain Pedal (hold, or hold Space)</button>
   <script src="/ui.js"></script>
   <script>
   window.onload = () => {
     const ui = new window.PianoUI();
     const dom = document.getElementById('main');
+    const statusDom = document.getElementById('status');
+    const progressTimer = setInterval(() => {
+      statusDom.textContent = `status: ${ui.piano.status}, loading: ${ui.piano.progress.loaded} / ${ui.piano.progress.total}`;
+    }, 200);
     ui.render(dom);
     ui.initPiano().then(() => {
+      clearInterval(progressTimer);
+      statusDom.textContent = 'status: ready';
       ui.bindDomEvent(dom);
-    })
+    }).catch(() => {
+      clearInterval(progressTimer);
+      statusDom.textContent = 'status: error';
+    });
+
+    const pedalDom = document.getElementById('pedal');
+    const down = () => ui.piano.pedalDown();
+    const up = () => ui.piano.pedalUp();
+    document.addEventListener('keydown', (e) => {
+      if (e.code === 'Space' && !e.repeat) {
+        e.preventDefault();
+        down();
+      }
+    });
+    document.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
+        up();
+      }
+    });
+    pedalDom.addEventListener('mousedown', down);
+    pedalDom.addEventListener('mouseup', up);
+    pedalDom.addEventListener('mouseleave', up);
+    pedalDom.addEventListener('touchstart', (e) => { e.preventDefault(); down(); });
+    pedalDom.addEventListener('touchend', up);
   }
   </script>
 </body>

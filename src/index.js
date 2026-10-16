@@ -1,33 +1,55 @@
-import SOUND_MAP from './data/data';
-import { decode } from 'base64-arraybuffer';
-import keyboard from './data/piano-keyboard';
+import keyboard from './data/piano-keyboard.js';
+import { toNoteName, NOTES } from './note-name.js';
 
-// pitch rate in each octave. standard rate level is in 4 
-const PITCH_RATE = [0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16];
+const DEFAULT_CDN_URL = 'https://mac-blog.oss-cn-beijing.aliyuncs.com/lite-piano/fluidr3';
+const LOAD_CONCURRENCY = 6;
+const RELEASE_SECONDS = 0.08;
 
 export default class LitePiano {
-  constructor() {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    const context = new AudioContext();
-    
-    this.context = context;
-    this.bufferList = [];
-    this._origin = SOUND_MAP;
+  constructor(options = {}) {
+    this.cdnBaseUrl = (options.cdnBaseUrl || DEFAULT_CDN_URL).replace(/\/+$/, '');
+    this.context = null;
     this.keyboard = keyboard.keyborad;
+    this.status = 'idle';
+    this.progress = { loaded: 0, total: NOTES.length };
+    this.onStatusChange = null;
+    this._buffers = {};
+    this._voices = new Map();
+    this._sustained = new Set();
+    this._pedalDown = false;
+    this._loadPromise = null;
+  }
+
+  _ensureContext() {
+    if (!this.context) {
+      const AudioContext = typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
+      if (!AudioContext) {
+        throw new Error('LitePiano: Web Audio API is not supported in this environment');
+      }
+      this.context = new AudioContext();
+    }
+    return this.context;
+  }
+
+  _setStatus(status) {
+    this.status = status;
+    if (typeof this.onStatusChange === 'function') {
+      this.onStatusChange(status);
+    }
   }
 
   /**
    * For Note:
-   * > On iOS, the Web Audio API requires sounds to be triggered from an explicit user action, such as a tap. 
+   * > On iOS, the Web Audio API requires sounds to be triggered from an explicit user action, such as a tap.
    * > Calling noteOn() from an onload event will not play sound.
    * in https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/Using_HTML5_Audio_Video/PlayingandSynthesizingSounds/PlayingandSynthesizingSounds.html#//apple_ref/doc/uid/TP40009523-CH6-SW1
-   * 
+   *
    * The function encapsulates the automatic processing of the state in which the sound context of the unlocked ios is suspended by user interaction.
-   * 
+   *
    * Returns the Promise object, if executed on the IOS, then resolve will be executed after the user clicks the screen to unlock the audio context.
    */
   resume() {
-    const context = this.context;
+    const context = this._ensureContext();
     return new Promise((resolve, reject) => {
       if (context.state === 'suspended' && 'ontouchstart' in window) {
         const unlock = () => {
@@ -48,84 +70,159 @@ export default class LitePiano {
   }
 
   /**
-   * Load all pitch data into the buffer.
+   * Fetch and decode all 88 note samples from the CDN. Idempotent: safe to
+   * call repeatedly; after an 'error' it only refetches the missing notes.
    */
-  initAllSound() {
-    const context = this.context;
-    const _origin = this._origin;
-    const todoList = [];
-    Object.keys(_origin).forEach(name => {
-      todoList.push(new Promise((resolve, reject) => {
-        const ab = decode(_origin[name]);
-        context.decodeAudioData(ab, (buffer) => {
-          this.bufferList.push({
-            name,
-            buffer
-          });
-          console.log(`${name} has finished`);
-          resolve();
-        }, err => {
-          reject(err);
+  load() {
+    if (this._loadPromise) {
+      return this._loadPromise;
+    }
+    const context = this._ensureContext();
+    this._setStatus('loading');
+    const todo = NOTES.filter(name => !this._buffers[name]);
+    const failed = [];
+    let cursor = 0;
+
+    const loadOne = (name, retried) => {
+      return fetch(`${this.cdnBaseUrl}/${name}.mp3`)
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`http ${res.status}`);
+          }
+          return res.arrayBuffer();
+        })
+        .then(ab => new Promise((resolve, reject) => {
+          context.decodeAudioData(ab, resolve, reject);
+        }))
+        .then(buffer => {
+          this._buffers[name] = buffer;
+          this.progress.loaded += 1;
+        })
+        .catch(err => {
+          if (!retried) {
+            return loadOne(name, true);
+          }
+          failed.push(name);
+          console.warn(`lite-piano: failed to load ${name}`, err);
         });
-      }));
+    };
+
+    const worker = () => {
+      if (cursor >= todo.length) {
+        return Promise.resolve();
+      }
+      const name = todo[cursor++];
+      return loadOne(name, false).then(worker);
+    };
+
+    const workers = [];
+    for (let i = 0; i < Math.min(LOAD_CONCURRENCY, todo.length); i++) {
+      workers.push(worker());
+    }
+
+    this._loadPromise = Promise.all(workers).then(() => {
+      if (failed.length) {
+        this._setStatus('error');
+        this._loadPromise = null;
+        throw new Error(`LitePiano: failed to load notes: ${failed.join(', ')}`);
+      }
+      this._setStatus('ready');
     });
-    return Promise.all(todoList);
+    return this._loadPromise;
   }
 
-  /**
-   * Play a pitch sound.
-   * @param {string} name The tone name. eg. C, D, E, F, G, A, B 
-   * @param {number} rate The octave of each tone is adjusted according to the value of rate.
-   */
-  play(name, rate = 1) {
-    if (!name) {
+  _releaseVoice(voice) {
+    if (!voice || voice.released) {
       return;
     }
-    const source = this.context.createBufferSource();
-    const dest = this.bufferList.find(item => item.name === name);
-    if (!dest) {
-      return;
+    voice.released = true;
+    if (voice.timer) {
+      clearTimeout(voice.timer);
+      voice.timer = null;
     }
-    source.buffer = dest.buffer;
-    source.playbackRate.value = rate
-    source.connect(this.context.destination);
-    source.start(this.context.currentTime);
-    source.stop(this.context.currentTime + 3);
-    return source;
+    this._sustained.delete(voice);
+    const t = this._ensureContext().currentTime;
+    voice.gain.gain.setValueAtTime(voice.gain.gain.value, t);
+    voice.gain.gain.linearRampToValueAtTime(0, t + RELEASE_SECONDS);
+    try {
+      voice.source.stop(t + RELEASE_SECONDS + 0.01);
+    } catch (e) {}
+    if (this._voices.get(voice.name) === voice) {
+      this._voices.delete(voice.name);
+    }
   }
 
   /**
    * Play a tone through tone name, octave and alter.
-   * eg: oneShot('D', 4) is the basic tone re (C). 4 is octave. 
-   * Basic tone is 4. lower octave is 3, 2, 1. Higher is 5, 6, 7
-   * @param {string} step 
-   * @param {number} octave 
-   * @param {number} alter 
+   * eg: oneShot('D', 4) plays D4; oneShot('C', 4, 1) plays C#4 (same as oneShot('D', 4, -1)).
+   * @param {string} step C D E F G A B
+   * @param {number} octave 0..8
+   * @param {number} alter 1 = sharp, 0 = natural, -1 = flat
+   * @param {number} duration seconds; omitted = ring to natural decay
    */
-  oneShot(step, octave = 4, alter = 1) {
-    if (!step) {
-      return;
+  oneShot(step, octave, alter = 0, duration) {
+    if (this.status !== 'ready') {
+      console.warn('lite-piano: sounds are not loaded yet, call load() first');
+      return null;
     }
-    step = step.toUpperCase();
+    const name = toNoteName(step, octave, alter);
+    if (!name) {
+      return null;
+    }
+    const context = this._ensureContext();
+    const old = this._voices.get(name);
+    if (old) {
+      this._releaseVoice(old);
+    }
 
-    /**
-     * Since E and B do not have black keys on the piano, but you can still make adjustments on E and B. 
-     * The result of alter is F in same octave and C in a higher octave.
-     */
-    if (alter === 1) {
-      if (step === 'E') {
-        step = 'F';
-        alter = 0;
+    const source = context.createBufferSource();
+    const gain = context.createGain();
+    source.buffer = this._buffers[name];
+    source.connect(gain);
+    gain.connect(context.destination);
+
+    const voice = { name, source, gain, timer: null, released: false };
+    this._voices.set(name, voice);
+    source.onended = () => {
+      this._sustained.delete(voice);
+      if (this._voices.get(name) === voice) {
+        this._voices.delete(name);
       }
-      if (step === 'B') {
-        step = 'C';
-        alter = 0;
-        octave += 1;
-      }
+    };
+    source.start(context.currentTime);
+
+    if (duration !== undefined && duration !== null) {
+      const ms = Math.max(0, Number(duration) || 0) * 1000;
+      voice.timer = setTimeout(() => {
+        voice.timer = null;
+        if (this._pedalDown) {
+          this._sustained.add(voice);
+        } else {
+          this._releaseVoice(voice);
+        }
+      }, ms);
     }
-    console.log(step, octave, alter);
-    return this.play(step, PITCH_RATE[octave]*(alter ? 1.06 : 1));
+    return source;
+  }
+
+  /**
+   * Sustain pedal down. Note-offs arriving while the pedal is down are
+   * deferred until pedalUp(). Idempotent.
+   */
+  pedalDown() {
+    this._pedalDown = true;
+  }
+
+  /**
+   * Sustain pedal up. Releases every voice the pedal was holding. Idempotent.
+   */
+  pedalUp() {
+    this._pedalDown = false;
+    this._sustained.forEach(voice => this._releaseVoice(voice));
+    this._sustained.clear();
   }
 }
 
-window.LitePiano = LitePiano;
+if (typeof window !== 'undefined') {
+  window.LitePiano = LitePiano;
+}

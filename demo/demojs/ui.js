@@ -3,15 +3,15 @@ import Piano from '../../src/index.js';
 import './ui.css';
 
 export default class PianoUI {
-  constructor() {
-    this.piano = new Piano();
+  constructor(options) {
+    this.piano = new Piano(options);
     this.aniTimmer = {};
   }
 
   initPiano() {
     return new Promise((resolve, reject) => {
       this.piano.resume().then(() => {
-        return this.piano.initAllSound();
+        return this.piano.load();
       }).then(() => {
         resolve(this.piano);
       }).catch(() => {
@@ -63,7 +63,7 @@ export default class PianoUI {
     this.refreshAlterKey(element);
   }
 
-  playOneShot(step, octave, alter) {
+  playOneShot(step, octave, alter, duration) {
     if (!step || !octave) {
       return;
     }
@@ -74,7 +74,7 @@ export default class PianoUI {
     }
 
     keyDom.classList.add('playing');
-    this.piano.oneShot(step, octave, alter);
+    this.piano.oneShot(step, octave, alter, duration);
     try {
       clearTimeout(this.aniTimmer[id]);
     } catch (e) {}

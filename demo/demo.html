@@ -12,6 +12,7 @@
   </style>
 </head>
 <body>
+  <div id="status">loading: 0 / 88</div>
   <div class="panel" id="panel"></div>
   <script src="/index.js"></script>
   <script>
@@ -37,13 +38,25 @@
       });
     }
 
+    const statusDom = document.getElementById('status');
     const LitePiano = window.LitePiano;
     var piano = new LitePiano();
+    piano.onStatusChange = (status) => {
+      statusDom.textContent = 'status: ' + status;
+    };
+    const progressTimer = setInterval(() => {
+      statusDom.textContent = `status: ${piano.status}, loading: ${piano.progress.loaded} / ${piano.progress.total}`;
+    }, 200);
     piano.resume().then(() => {
-      return piano.initAllSound()
+      return piano.load();
     }).then(() => {
+      clearInterval(progressTimer);
+      statusDom.textContent = 'status: ready';
       initDom(piano);
       initDomEvent(piano);
+    }).catch((e) => {
+      clearInterval(progressTimer);
+      statusDom.textContent = 'status: error - ' + e.message;
     });
   }
   </script>

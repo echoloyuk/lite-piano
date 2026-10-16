@@ -193,6 +193,7 @@ function getPlayingTimeObject(sourceObj, quaterTime) {
           step: note.step,
           octave: note.octave,
           alter: note.alter,
+          stay: note.stay,
           timeStamp: note.timeStamp,
           played: false,
           uid: note.uid,

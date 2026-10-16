@@ -1,14 +1,29 @@
 # Lite-piano
 
-基于JavaScript Web Audio API编写的迷你钢琴组件，该组件用于在Web APP中使用Audio Context播放钢琴的基本琴键的声音。
+基于 JavaScript Web Audio API 编写的迷你钢琴组件，用于在 Web App 中播放真实的钢琴琴键声音。
 
-当然这只是一个基础库，你可以使用它来做很多上层应用。这里补充一个[在线Demo](https://www.himachi.cn/demo/lite-piano/index.html)。Demo页面引入了一个《卡农D大调》的[musicXML](https://en.wikipedia.org/wiki/MusicXML)乐谱，并解析成lite-piano可识别的参数，再使用setTimeout将它演奏出来。（Demo示例没有做更深入的网络优化，可能需要大约3.5M网络流量来加载音频和乐谱，请耐心等待加载完毕后点击Play）
+2.0 起，88 个琴键各自播放独立的真实采样（音源为 [FluidR3_GM](https://musical-artifacts.com/artifacts/794) 三角钢琴音色库，[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) 许可），通过 CDN 加载，不再从少量基础音变调。同时新增延音踏板 API 与加载状态机。
 
-## How to install
+这里有一个[在线 Demo](https://www.himachi.cn/demo/lite-piano/index.html)。Demo 页面引入了一份《卡农 D 大调》的 [musicXML](https://en.wikipedia.org/wiki/MusicXML) 乐谱，解析成 lite-piano 可识别的参数并自动演奏。
 
-### 直接使用源码
+## 如何安装
 
-下载源代码，将`/dist/index.js`放到你需要的地方，直接加载`/dist/index.js`中的内容到页面上即可。
+### script 标签直接引入
+
+把 `/dist/index.js`（UMD 包）加载到页面中，构造函数会挂载到 `window.LitePiano`。
+
+### npm / 构建工具（React、Vue 等）
+
+```
+npm install lite-piano
+```
+
+```js
+import LitePiano from 'lite-piano'; // ESM
+// 或：const LitePiano = require('lite-piano'); // CommonJS
+```
+
+Node.js 服务端（SSR）可以安全 import 本包——构造函数不触碰任何浏览器 API——但服务端没有 Web Audio API，无法发声。
 
 ### 本地运行
 
@@ -16,57 +31,68 @@
 - `cd lite-piano`
 - `npm install`
 - `npm run start` 启动本地服务器。
-- 访问`127.0.0.1:9090/demo/index.html`即可
+- 访问 `127.0.0.1:9090/demo/index.html` 即可
 
-## How to use
+## 如何使用
 
-首先，加载index.js到您的页面上，加载完毕后，构造函数会挂载到`window`全局变量上。于是你可以按照如下方法使用：
+```js
+const piano = new LitePiano(); // 默认从内置 CDN 加载采样
 
-```
-const LitePiano = window.LitePiano;
-const piano = new LitePiano();
-piano.resume().then(() => {
-  piano.initAllSound(); // load all basic on shot sound.
-}).then(() => {
-  document.getElementById('button').addEventListener('click', () => {
-    piano.oneShot('C', 4, 0); // play a DO pitch.
+piano.onStatusChange = (status) => {
+  // 'idle' | 'loading' | 'ready' | 'error'
+  console.log(status, piano.progress.loaded, '/', piano.progress.total);
+};
+
+piano.resume() // 在用户手势中调用，解锁 AudioContext（iOS 必需）
+  .then(() => piano.load()) // 拉取并解码全部 88 个采样
+  .then(() => {
+    piano.oneShot('C', 4, 0); // 播放中央 C
   });
-});
 ```
 
-## 常用属性&方法
+也可以自建采样托管：`new LitePiano({ cdnBaseUrl: 'https://your.cdn/piano' })`，要求能以 `<cdnBaseUrl>/<音名>.mp3`（如 `C4.mp3`、`Db4.mp3`）访问，且已配置 CORS。
 
-### `resume()`
+## 常用属性 & 方法
 
-该方法返回一个Promise对象，在IOS上，所有的声音上下文被自动挂起，需要用户手动触发事件才能解锁。因此执行该方法后，可以直接关注用户解锁后的逻辑实现。
+| API | 说明 |
+| --- | --- |
+| `resume()` | 返回 Promise。解锁 AudioContext，请在用户手势中、播放之前调用。 |
+| `load()` | 返回 Promise。加载全部 88 个采样；`error` 后可再次调用重试。 |
+| `oneShot(step, octave, alter, duration?)` | 播放一个琴键，返回 audio source 对象。`step`：`C`–`B`；`octave`：0–8；`alter`：`1` 升半音、`-1` 降半音、`0` 本音——`oneShot('C', 4, 1)` 与 `oneShot('D', 4, -1)` 是同一个键（Db4），对齐五线谱升降记号。可选 `duration`（秒）：到点止音；不传则采样自然衰减。 |
+| `pedalDown()` / `pedalUp()` | 延音踏板。踩下期间，`duration` 到点的音符继续延留；抬起时统一止音。幂等，任意状态下调用都安全。 |
+| `status` | `'idle' \| 'loading' \| 'ready' \| 'error'`。 |
+| `progress` | `{ loaded, total }`，`total` 为 88。 |
+| `onStatusChange` | 赋值回调 `(status) => {}` 观察加载状态变化。 |
+
+```js
+piano.oneShot('C', 4, 0);          // 中央 C，自然衰减
+piano.oneShot('F', 3, 1, 1.5);     // F#3，1.5 秒后止音
+piano.pedalDown();
+piano.oneShot('G', 4, 0, 0.5);     // 0.5 秒后仍延留
+piano.pedalUp();                   // 此刻统一止音
+```
+
+## 从 1.x 迁移
+
+- `initAllSound()` → `load()`，并可用 `status` / `progress` / `onStatusChange` 观察加载。
+- `play(name, rate)` 已移除——请使用 `oneShot(step, octave, alter, duration?)`。
+- `alter` 新增 `-1`（降号），与 `1`（升号）对齐五线谱记法；`0` 仍为本音。
+- 字符串形式的 `alter`（如 `'1'`）现在会被正确解析；1.x 用 `=== 1` 比较，字符串会被静默当作本音。
+- 音频不再以 base64 内嵌；采样走 CDN 加载，首次使用需要网络。
+
+## 维护者：发布
 
 ```
-piano.resume().then(() => {
-  // you can do something after user interact. and the web audio api is ok.
-});
+node scripts/publish.js --dry-run   # 演练正式版发布流程（不真正发布）
+node scripts/publish.js beta        # 发布 beta 版（x.y.z-beta.N，npm dist-tag beta）
+node scripts/publish.js             # 按 package.json 中的版本号发布正式版
 ```
 
-### `initAllSound()`
-
-该方法返回一个Promise对象，由于7个基础音阶的加载和处理是异步的，因此，您需要执行该方法来保证所有钢琴上的音调都可以正确播放。
-
-```
-piano.initAllSound().then(() => {
-  // all sound is inited, now you can play it.
-});
-```
-
-### `oneShot(step, octave, alter)`
-
-该方法返回一个audio source对象。播放一个按键的声音，step表示音调名，分别有：C, D, E, F, G, A, B。octave表示八度，标准的钢琴键C的octave为4，最大为8，最小为0。alter为1时，表示升调，例如：C#, F#等。升调就是钢琴上的黑键。
-
-```
-piano.oneShot('C', 4, 0);
-```
+发布前脚本会依次检查 npm 登录态、音名自测脚本与完整构建。
 
 ## 兼容性
 
-由于使用原生的JavaScript Web Audio API, 因此不兼容IE系列浏览器，十分抱歉
+由于使用原生的 JavaScript Web Audio API，因此不兼容 IE 系列浏览器，十分抱歉。
 
 - Chrome: up to 49
 - FireFox: up to 61

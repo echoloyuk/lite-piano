@@ -110,7 +110,7 @@
       
       if (tmpArr.length) {
         tmpArr.forEach(item => {
-          piano.playOneShot(item.step, parseInt(item.octave), parseInt(item.alter));
+          piano.playOneShot(item.step, parseInt(item.octave), parseInt(item.alter), item.stay);
           const uid = item.uid;
           document.getElementById(`note_${uid}`).classList.add('played');
         });

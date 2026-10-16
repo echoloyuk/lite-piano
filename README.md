@@ -1,8 +1,10 @@
 # Lite-piano
 
-A mini piano component based on the JavaScript Web Audio API, for playing the basic tone of a piano using the Audio Context in a web app.
+A mini piano component based on the JavaScript Web Audio API, for playing real piano key sounds in a web app.
 
-The Lite-piano is a basic library, you can use it to do your applications logic or any other piano-like music web apps. This is a [Demo](https://www.himachi.cn/demo/lite-piano/index.html), which introduces a [musicXML](https://en.wikipedia.org/wiki/MusicXML) score of "Canon D Major" and parses it into lite-piano recognizable parameters. we uses setTimeout to play it automatically. (The demo did not do extra network optimization. It may take about 3.5Mb to load audio and music scores. Please wait patiently and click Play after loading.)
+Since 2.0, every one of the 88 keys plays its own real sample (the [FluidR3_GM](https://musical-artifacts.com/artifacts/794) acoustic grand piano soundfont, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)) loaded from a CDN — no more pitch shifting from a handful of base tones. 2.0 also adds a sustain pedal API and a loading state machine.
+
+This is a [Demo](https://www.himachi.cn/demo/lite-piano/index.html), which introduces a [musicXML](https://en.wikipedia.org/wiki/MusicXML) score of "Canon D Major" and parses it into lite-piano recognizable parameters to play automatically.
 
 See Readme with [中文版](./README_zh_cn.md)
 
@@ -10,66 +12,87 @@ See Readme with [中文版](./README_zh_cn.md)
 
 ## How to install
 
-### Use source
+### Script tag
 
-Download the source code, put `/dist/index.js` where you need it, and load the contents of `/dist/index.js` directly into the page.
+Load `/dist/index.js` (a UMD bundle) into your page. The constructor mounts to `window.LitePiano`.
+
+### npm / bundler (React, Vue, ...)
+
+```
+npm install lite-piano
+```
+
+```js
+import LitePiano from 'lite-piano'; // ESM
+// or: const LitePiano = require('lite-piano'); // CommonJS
+```
+
+Node.js (SSR) can import the package safely — the constructor does not touch any browser API — but no sound can play there, since Web Audio API does not exist on the server.
 
 ### Use for localhost
 
 - `git clone`
 - `cd lite-piano`
 - `npm install`
-- `npm run start` start webpack-dev-server。
+- `npm run start` start webpack-dev-server.
 - Open the browser `127.0.0.1:9090/demo/index.html`
 
 ## How to use
 
-You should load index.js into your page. After loading, the constructor will be mounted to the `window` global variable. So you can use it as follows:
+```js
+const piano = new LitePiano(); // samples load from the built-in CDN by default
 
-```
-const LitePiano = window.LitePiano;
-const piano = new LitePiano();
-piano.resume().then(() => {
-  piano.initAllSound(); // load all basic on shot sound.
-}).then(() => {
-  document.getElementById('button').addEventListener('click', () => {
-    piano.oneShot('C', 4, 0); // play a DO pitch.
+piano.onStatusChange = (status) => {
+  // 'idle' | 'loading' | 'ready' | 'error'
+  console.log(status, piano.progress.loaded, '/', piano.progress.total);
+};
+
+piano.resume() // unlock the AudioContext after a user gesture (required on iOS)
+  .then(() => piano.load()) // fetch & decode all 88 samples
+  .then(() => {
+    piano.oneShot('C', 4, 0); // play middle C
   });
-});
 ```
+
+Use your own sample host if you prefer: `new LitePiano({ cdnBaseUrl: 'https://your.cdn/piano' })` — it must serve `<cdnBaseUrl>/<NoteName>.mp3` (e.g. `C4.mp3`, `Db4.mp3`) with CORS enabled.
 
 ## Attributes & Functions
 
-### `resume()`
+| API | Description |
+| --- | --- |
+| `resume()` | Returns a Promise. Unlocks the AudioContext; call it from a user gesture before playing. |
+| `load()` | Returns a Promise. Loads all 88 samples; safe to call again to retry after an `error`. |
+| `oneShot(step, octave, alter, duration?)` | Plays a key and returns the audio source. `step`: `C`–`B`. `octave`: 0–8. `alter`: `1` sharp, `-1` flat, `0` natural — `oneShot('C', 4, 1)` and `oneShot('D', 4, -1)` are the same key (Db4). Optional `duration` (seconds): the note is stopped after it elapses; omit it to let the sample decay naturally. |
+| `pedalDown()` / `pedalUp()` | Sustain pedal. While down, notes whose `duration` ends keep sounding; `pedalUp()` releases them together. Idempotent and safe in any status. |
+| `status` | `'idle' \| 'loading' \| 'ready' \| 'error'`. |
+| `progress` | `{ loaded, total }` — `total` is 88. |
+| `onStatusChange` | Assign a callback `(status) => {}` to watch loading state. |
 
-This method returns a Promise. On the IOS, the audio contexts are automatically suspended, requiring the user to manually trigger an event to unlock. Therefore, after executing this function, the logic implementation after the user interaction is unlocked can be directly executed.
-
-```
-piano.resume().then(() => {
-  // you can do something after user interact. and the web audio api is ok.
-});
-```
-
-### `initAllSound()`
-
-This function returns a Promise. Since the loading and processing of the 7 basic scales is asynchronous, you need to perform this method to ensure that the tones on all pianos are played correctly.
-
-```
-piano.initAllSound().then(() => {
-  // all sound is inited, now you can play it.
-});
+```js
+piano.oneShot('C', 4, 0);          // middle C, natural decay
+piano.oneShot('F', 3, 1, 1.5);     // F#3, stopped after 1.5s
+piano.pedalDown();
+piano.oneShot('G', 4, 0, 0.5);     // still sustained after 0.5s
+piano.pedalUp();                   // released now
 ```
 
-### `oneShot(step, octave, alter)`
+## Migrating from 1.x
 
-This function returns an audio source object, and play a pitch sound.
-Step indicates the tone name, respectively: C, D, E, F, G, A, B. 
-Octave represents octave, max is 8, and min is 0. eg. The standard piano key C has an octave of 4
-And alter = 1 indicates an alter step tone, for example: C#, F#, etc. Usually, The alter tone is the black key on the piano.
+- `initAllSound()` → `load()`, with `status` / `progress` / `onStatusChange` to observe it.
+- `play(name, rate)` is removed — use `oneShot(step, octave, alter, duration?)`.
+- `alter` now accepts `-1` (flat) in addition to `1` (sharp), aligning with staff notation. `0` stays natural.
+- String `alter` values (e.g. `'1'`) are now parsed correctly; 1.x compared with `=== 1` and silently treated them as natural.
+- Audio data is no longer embedded as base64; samples are fetched from a CDN, so first load needs network.
+
+## For maintainers: publishing
 
 ```
-piano.oneShot('C', 4, 0);
+node scripts/publish.js --dry-run   # check the stable release flow without publishing
+node scripts/publish.js beta        # publish a beta (x.y.z-beta.N, npm dist-tag beta)
+node scripts/publish.js             # publish the stable version in package.json
 ```
+
+The script checks npm login, runs the note-name self-check and a full build before publishing.
 
 ## Compatibility
 
@@ -81,4 +104,3 @@ It is not compatible for IE series, due to using JavaScript Web Audio API to imp
 - Safari: 11.1
 - iOS Safari: up to 10.3
 - Chrome for Android: up to 69
-
