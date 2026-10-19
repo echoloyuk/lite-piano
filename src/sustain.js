@@ -115,3 +115,23 @@ export function buildLoopChannels(buffer, analysis) {
   }
   return out;
 }
+
+/**
+ * Gain a looping note should have `elapsed` seconds after note start:
+ * full level until loopStart, then the measured decay, clamped to
+ * [-60 dB, 0 dB].
+ */
+export function naturalGainAt(analysis, elapsed) {
+  if (elapsed <= analysis.loopStart) {
+    return 1;
+  }
+  const gain = Math.pow(10, -analysis.decayDbPerSec * (elapsed - analysis.loopStart) / 20);
+  return clamp(gain, 0.001, 1);
+}
+
+/**
+ * Seconds after note start when the natural decay reaches -60 dB.
+ */
+export function inaudibleAfter(analysis) {
+  return analysis.loopStart + 60 / analysis.decayDbPerSec;
+}

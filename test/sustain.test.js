@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { analyzeSustain, buildLoopChannels } from '../src/sustain.js';
+import { analyzeSustain, buildLoopChannels, naturalGainAt, inaudibleAfter } from '../src/sustain.js';
 
 const SR = 8000;
 
@@ -102,4 +102,17 @@ test('regions outside window and seam are untouched', () => {
   const sr = buf.sampleRate;
   for (let i = 0; i < Math.floor(0.5 * sr); i++) assert.equal(out[i], src[i]);
   assert.notEqual(out, src);
+});
+
+test('gain is 1 before loopStart and decays at the measured rate', () => {
+  const a = { loopStart: 1.8, decayDbPerSec: 10 };
+  assert.equal(naturalGainAt(a, 1.0), 1);
+  assert.equal(naturalGainAt(a, 1.8), 1);
+  assert.ok(Math.abs(naturalGainAt(a, 3.8) - 0.01) < 1e-6); // 2s · 10 dB/s = -20 dB
+});
+
+test('inaudibleAfter hits -60 dB then clamps', () => {
+  const a = { loopStart: 1.8, decayDbPerSec: 10 };
+  assert.ok(Math.abs(inaudibleAfter(a) - 7.8) < 1e-9); // 1.8 + 60/10
+  assert.equal(naturalGainAt(a, 100), 0.001);
 });
