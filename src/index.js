@@ -1,5 +1,6 @@
 import keyboard from './data/piano-keyboard.js';
 import { toNoteName, NOTES } from './note-name.js';
+import { analyzeSustain, buildLoopChannels, naturalGainAt, inaudibleAfter } from './sustain.js';
 
 const DEFAULT_CDN_URL = 'https://mac-blog.oss-cn-beijing.aliyuncs.com/lite-piano/fluidr3';
 const LOAD_CONCURRENCY = 6;
@@ -28,6 +29,8 @@ export default class LitePiano {
     this._sustained = new Set();
     this._pedalDown = false;
     this._loadPromise = null;
+    this._sustainInfo = {};
+    this._loopBuffers = {};
   }
 
   _ensureContext() {
@@ -141,6 +144,31 @@ export default class LitePiano {
     return this._loadPromise;
   }
 
+  /**
+   * Lazily analyze a note's sustain envelope and build its processed loop
+   * buffer on first long-duration use; both are cached per note. Returns
+   * null for dead-type notes whose real sustain dies inside the sample.
+   */
+  _loopVoiceData(name) {
+    if (!(name in this._sustainInfo)) {
+      this._sustainInfo[name] = analyzeSustain(this._buffers[name]);
+    }
+    const analysis = this._sustainInfo[name];
+    if (!analysis.sustaining) {
+      return null;
+    }
+    if (!this._loopBuffers[name]) {
+      const raw = this._buffers[name];
+      const context = this._ensureContext();
+      const buffer = context.createBuffer(raw.numberOfChannels, raw.length, raw.sampleRate);
+      buildLoopChannels(raw, analysis).forEach((data, ch) => {
+        buffer.getChannelData(ch).set(data);
+      });
+      this._loopBuffers[name] = buffer;
+    }
+    return { analysis, buffer: this._loopBuffers[name] };
+  }
+
   _releaseVoice(voice) {
     if (!voice || voice.released) {
       return;
@@ -170,9 +198,11 @@ export default class LitePiano {
    * @param {number} octave 0..8
    * @param {number} alter 1 = sharp, 0 = natural, -1 = flat
    * @param {number} duration seconds the note lasts. Shorter than the sample =
-   * cut with a smooth fade (staccato); longer = seamlessly looped and decayed
-   * to silence at `duration`. Pedal down at note-off extends it to
-   * SUSTAIN_SECONDS. Omitted = ring to natural decay.
+   * cut with a smooth fade (staccato); longer = the de-tilted sustain region
+   * loops seamlessly while the note's measured decay rate carries it toward
+   * silence (high notes whose real sustain is short simply die naturally).
+   * Pedal down at note-off extends it to SUSTAIN_SECONDS.
+   * Omitted = ring to natural decay.
    */
   oneShot(step, octave, alter = 0, duration) {
     if (this.status !== 'ready') {
@@ -213,17 +243,39 @@ export default class LitePiano {
       voice.seconds = seconds;
       voice.natural = natural;
 
-      if (seconds > natural * LOOP_END_RATIO) {
-        // longer than the sample: seamlessly loop the sustain region and
-        // shape an exponential decay that reaches silence at `endAt`
-        source.buffer = this._createSustainBuffer(this._buffers[name]);
-        source.loop = true;
-        source.loopStart = natural * LOOP_START_RATIO;
-        source.loopEnd = natural * LOOP_END_RATIO;
-        const decayFrom = startedAt + natural * LOOP_END_RATIO;
-        const tc = Math.max((endAt - decayFrom) / LN_AUDIBLE, MIN_DECAY_SECONDS);
-        gain.gain.setValueAtTime(1, decayFrom);
-        gain.gain.setTargetAtTime(0, decayFrom, tc);
+      if (seconds > 0.9 * natural) {
+        const data = this._loopVoiceData(name);
+        if (data && seconds > data.analysis.audibleEnd) {
+          // longer than the note really sustains: loop the de-tilted sustain
+          // region while the gain envelope keeps the measured decay rate
+          const analysis = data.analysis;
+          source.buffer = data.buffer;
+          source.loop = true;
+          source.loopStart = analysis.loopStart;
+          source.loopEnd = analysis.loopEnd;
+          const inaudibleAt = startedAt + inaudibleAfter(analysis);
+          const decayEnd = Math.min(endAt, inaudibleAt);
+          gain.gain.setValueAtTime(1, startedAt + analysis.loopStart);
+          gain.gain.exponentialRampToValueAtTime(
+            Math.max(naturalGainAt(analysis, decayEnd - startedAt), 0.001), decayEnd);
+          if (endAt < inaudibleAt) {
+            voice.fade = RELEASE_SECONDS;
+            gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
+          }
+          try {
+            source.stop(Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02);
+          } catch (e) {}
+        } else if (seconds < natural) {
+          // ends inside the audible region: raw sample + fade at note-off
+          source.buffer = this._buffers[name];
+          const fade = Math.min(RELEASE_SECONDS, Math.max(MIN_FADE_SECONDS, seconds / 2));
+          voice.fade = fade;
+          gain.gain.setValueAtTime(1, endAt);
+          gain.gain.linearRampToValueAtTime(0, endAt + fade);
+        } else {
+          // dead-type note with a long duration: plays out and dies on its own
+          source.buffer = this._buffers[name];
+        }
       } else {
         // shorter than the sample: hold full level until note-off, then fade
         source.buffer = this._buffers[name];
