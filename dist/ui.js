@@ -1629,8 +1629,10 @@ function () {
               gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
             }
 
+            voice.stopAt = Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02;
+
             try {
-              source.stop(Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02);
+              source.stop(voice.stopAt);
             } catch (e) {}
           } else if (seconds < natural) {
             // ends inside the audible region: raw sample + fade at note-off
@@ -1664,10 +1666,15 @@ function () {
             _this2._sustained.add(voice);
           } else {
             voice.released = true;
+            var stopAt = endAt + (voice.fade || 0) + 0.02;
 
-            try {
-              voice.source.stop(endAt + (voice.fade || 0) + 0.02);
-            } catch (e) {}
+            if (!voice.stopAt || stopAt < voice.stopAt) {
+              try {
+                voice.source.stop(stopAt);
+              } catch (e) {}
+
+              voice.stopAt = stopAt;
+            }
           }
         }, Math.max(0, seconds - DECIDE_BEFORE_END_SECONDS) * 1000);
       }
@@ -1725,7 +1732,15 @@ function () {
           }
         };
 
-        gain.gain.setValueAtTime(Math.max(Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["naturalGainAt"])(analysis, now - voice.startedAt), 0.001), now);
+        var elapsed = now - voice.startedAt;
+        var level = Math.max(Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["naturalGainAt"])(analysis, elapsed), 0.001);
+        gain.gain.setValueAtTime(level, now);
+        var loopAt = voice.startedAt + analysis.loopStart;
+
+        if (loopAt > now) {
+          gain.gain.setValueAtTime(level, loopAt);
+        }
+
         oldGain.gain.cancelScheduledValues(now);
         oldGain.gain.setValueAtTime(oldGain.gain.value, now);
         oldGain.gain.linearRampToValueAtTime(0, now + SWAP_SECONDS);
@@ -1735,7 +1750,7 @@ function () {
           oldSource.stop(now + SWAP_SECONDS + 0.01);
         } catch (e) {}
 
-        source.start(now, analysis.loopStart);
+        source.start(now, Math.min(elapsed, analysis.loopStart));
         voice.source = source;
         voice.gain = gain;
       } else {
@@ -1750,8 +1765,10 @@ function () {
         voice.gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
       }
 
+      voice.stopAt = Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02;
+
       try {
-        voice.source.stop(Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02);
+        voice.source.stop(voice.stopAt);
       } catch (e) {}
     }
     /**

@@ -257,8 +257,9 @@ export default class LitePiano {
             voice.fade = RELEASE_SECONDS;
             gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
           }
+          voice.stopAt = Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02;
           try {
-            source.stop(Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02);
+            source.stop(voice.stopAt);
           } catch (e) {}
         } else if (seconds < natural) {
           // ends inside the audible region: raw sample + fade at note-off
@@ -288,9 +289,13 @@ export default class LitePiano {
           this._sustained.add(voice);
         } else {
           voice.released = true;
-          try {
-            voice.source.stop(endAt + (voice.fade || 0) + 0.02);
-          } catch (e) {}
+          const stopAt = endAt + (voice.fade || 0) + 0.02;
+          if (!voice.stopAt || stopAt < voice.stopAt) {
+            try {
+              voice.source.stop(stopAt);
+            } catch (e) {}
+            voice.stopAt = stopAt;
+          }
         }
       }, Math.max(0, seconds - DECIDE_BEFORE_END_SECONDS) * 1000);
     }
@@ -336,7 +341,13 @@ export default class LitePiano {
           this._voices.delete(voice.name);
         }
       };
-      gain.gain.setValueAtTime(Math.max(naturalGainAt(analysis, now - voice.startedAt), 0.001), now);
+      const elapsed = now - voice.startedAt;
+      const level = Math.max(naturalGainAt(analysis, elapsed), 0.001);
+      gain.gain.setValueAtTime(level, now);
+      const loopAt = voice.startedAt + analysis.loopStart;
+      if (loopAt > now) {
+        gain.gain.setValueAtTime(level, loopAt);
+      }
       oldGain.gain.cancelScheduledValues(now);
       oldGain.gain.setValueAtTime(oldGain.gain.value, now);
       oldGain.gain.linearRampToValueAtTime(0, now + SWAP_SECONDS);
@@ -344,7 +355,7 @@ export default class LitePiano {
       try {
         oldSource.stop(now + SWAP_SECONDS + 0.01);
       } catch (e) {}
-      source.start(now, analysis.loopStart);
+      source.start(now, Math.min(elapsed, analysis.loopStart));
       voice.source = source;
       voice.gain = gain;
     } else {
@@ -357,8 +368,9 @@ export default class LitePiano {
     if (endAt < inaudibleAt) {
       voice.gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
     }
+    voice.stopAt = Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02;
     try {
-      voice.source.stop(Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02);
+      voice.source.stop(voice.stopAt);
     } catch (e) {}
   }
 
