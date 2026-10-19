@@ -485,6 +485,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return LitePiano; });
 /* harmony import */ var _data_piano_keyboard_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./data/piano-keyboard.js */ "./src/data/piano-keyboard.js");
 /* harmony import */ var _note_name_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./note-name.js */ "./src/note-name.js");
+/* harmony import */ var _sustain_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./sustain.js */ "./src/sustain.js");
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
@@ -493,19 +494,15 @@ function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _d
 
 
 
+
 var DEFAULT_CDN_URL = 'https://mac-blog.oss-cn-beijing.aliyuncs.com/lite-piano/fluidr3';
 var LOAD_CONCURRENCY = 6;
 var RELEASE_SECONDS = 0.3;
 var MIN_FADE_SECONDS = 0.05;
 var MIN_NOTE_SECONDS = 0.1;
-var MIN_DECAY_SECONDS = 0.3;
 var SUSTAIN_SECONDS = 10;
-var LOOP_START_RATIO = 0.45;
-var LOOP_END_RATIO = 0.95;
-var LOOP_BLEND_SECONDS = 0.08;
 var SWAP_SECONDS = 0.06;
 var DECIDE_BEFORE_END_SECONDS = 0.05;
-var LN_AUDIBLE = Math.log(1000);
 
 var LitePiano =
 /*#__PURE__*/
@@ -529,6 +526,8 @@ function () {
     this._sustained = new Set();
     this._pedalDown = false;
     this._loadPromise = null;
+    this._sustainInfo = {};
+    this._loopBuffers = {};
   }
 
   _createClass(LitePiano, [{
@@ -665,6 +664,42 @@ function () {
       });
       return this._loadPromise;
     }
+    /**
+     * Lazily analyze a note's sustain envelope and build its processed loop
+     * buffer on first long-duration use; both are cached per note. Returns
+     * null for dead-type notes whose real sustain dies inside the sample.
+     */
+
+  }, {
+    key: "_loopVoiceData",
+    value: function _loopVoiceData(name) {
+      if (!(name in this._sustainInfo)) {
+        this._sustainInfo[name] = Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["analyzeSustain"])(this._buffers[name]);
+      }
+
+      var analysis = this._sustainInfo[name];
+
+      if (!analysis.sustaining) {
+        return null;
+      }
+
+      if (!this._loopBuffers[name]) {
+        var raw = this._buffers[name];
+
+        var context = this._ensureContext();
+
+        var buffer = context.createBuffer(raw.numberOfChannels, raw.length, raw.sampleRate);
+        Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["buildLoopChannels"])(raw, analysis).forEach(function (data, ch) {
+          buffer.getChannelData(ch).set(data);
+        });
+        this._loopBuffers[name] = buffer;
+      }
+
+      return {
+        analysis: analysis,
+        buffer: this._loopBuffers[name]
+      };
+    }
   }, {
     key: "_releaseVoice",
     value: function _releaseVoice(voice) {
@@ -702,9 +737,11 @@ function () {
      * @param {number} octave 0..8
      * @param {number} alter 1 = sharp, 0 = natural, -1 = flat
      * @param {number} duration seconds the note lasts. Shorter than the sample =
-     * cut with a smooth fade (staccato); longer = seamlessly looped and decayed
-     * to silence at `duration`. Pedal down at note-off extends it to
-     * SUSTAIN_SECONDS. Omitted = ring to natural decay.
+     * cut with a smooth fade (staccato); longer = the de-tilted sustain region
+     * loops seamlessly while the note's measured decay rate carries it toward
+     * silence (high notes whose real sustain is short simply die naturally).
+     * Pedal down at note-off extends it to SUSTAIN_SECONDS.
+     * Omitted = ring to natural decay.
      */
 
   }, {
@@ -767,24 +804,50 @@ function () {
         voice.seconds = seconds;
         voice.natural = natural;
 
-        if (seconds > natural * LOOP_END_RATIO) {
-          // longer than the sample: seamlessly loop the sustain region and
-          // shape an exponential decay that reaches silence at `endAt`
-          source.buffer = this._createSustainBuffer(this._buffers[name]);
-          source.loop = true;
-          source.loopStart = natural * LOOP_START_RATIO;
-          source.loopEnd = natural * LOOP_END_RATIO;
-          var decayFrom = startedAt + natural * LOOP_END_RATIO;
-          var tc = Math.max((endAt - decayFrom) / LN_AUDIBLE, MIN_DECAY_SECONDS);
-          gain.gain.setValueAtTime(1, decayFrom);
-          gain.gain.setTargetAtTime(0, decayFrom, tc);
+        if (seconds > 0.9 * natural) {
+          var data = this._loopVoiceData(name);
+
+          if (data && seconds > data.analysis.audibleEnd) {
+            // longer than the note really sustains: loop the de-tilted sustain
+            // region while the gain envelope keeps the measured decay rate
+            var analysis = data.analysis;
+            source.buffer = data.buffer;
+            source.loop = true;
+            source.loopStart = analysis.loopStart;
+            source.loopEnd = analysis.loopEnd;
+            var inaudibleAt = startedAt + Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["inaudibleAfter"])(analysis);
+            var decayEnd = Math.min(endAt, inaudibleAt);
+            gain.gain.setValueAtTime(1, startedAt + analysis.loopStart);
+            gain.gain.exponentialRampToValueAtTime(Math.max(Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["naturalGainAt"])(analysis, decayEnd - startedAt), 0.001), decayEnd);
+
+            if (endAt < inaudibleAt) {
+              voice.fade = RELEASE_SECONDS;
+              gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
+            }
+
+            try {
+              source.stop(Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02);
+            } catch (e) {}
+          } else if (seconds < natural) {
+            // ends inside the audible region: raw sample + fade at note-off
+            source.buffer = this._buffers[name];
+            var fade = Math.min(RELEASE_SECONDS, Math.max(MIN_FADE_SECONDS, seconds / 2));
+            voice.fade = fade;
+            gain.gain.setValueAtTime(1, endAt);
+            gain.gain.linearRampToValueAtTime(0, endAt + fade);
+          } else {
+            // dead-type note with a long duration: plays out and dies on its own
+            source.buffer = this._buffers[name];
+          }
         } else {
           // shorter than the sample: hold full level until note-off, then fade
           source.buffer = this._buffers[name];
-          var fade = Math.min(RELEASE_SECONDS, Math.max(MIN_FADE_SECONDS, seconds / 2));
-          voice.fade = fade;
+
+          var _fade = Math.min(RELEASE_SECONDS, Math.max(MIN_FADE_SECONDS, seconds / 2));
+
+          voice.fade = _fade;
           gain.gain.setValueAtTime(1, endAt);
-          gain.gain.linearRampToValueAtTime(0, endAt + fade);
+          gain.gain.linearRampToValueAtTime(0, endAt + _fade);
         } // decide slightly before the fade runs so a held pedal cancels it seamlessly
 
 
@@ -809,39 +872,11 @@ function () {
       return source;
     }
     /**
-     * Copy of the sample with an 80ms crossfade baked in just before
-     * loopEnd, morphing the loop tail into the material right before
-     * loopStart, so a [loopStart, loopEnd) loop wraps seamlessly.
-     */
-
-  }, {
-    key: "_createSustainBuffer",
-    value: function _createSustainBuffer(buffer) {
-      var context = this._ensureContext();
-
-      var loopStart = Math.floor(buffer.length * LOOP_START_RATIO);
-      var loopEnd = Math.floor(buffer.length * LOOP_END_RATIO);
-      var blend = Math.min(Math.floor(buffer.sampleRate * LOOP_BLEND_SECONDS), loopStart);
-      var out = context.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
-
-      for (var ch = 0; ch < buffer.numberOfChannels; ch++) {
-        var data = buffer.getChannelData(ch);
-        var target = out.getChannelData(ch);
-        target.set(data);
-
-        for (var i = 0; i < blend; i++) {
-          var t = i / blend;
-          var idx = loopEnd - blend + i;
-          target[idx] = data[idx] * (1 - t) + data[loopStart - blend + i] * t;
-        }
-      }
-
-      return out;
-    }
-    /**
      * A held pedal turns the note into a long one: keep it sounding for
-     * SUSTAIN_SECONDS from note-on. Swaps to the seamless loop if the
-     * voice is not looping yet, then re-shapes the decay to the new end.
+     * SUSTAIN_SECONDS from note-on. The measured decay rate never changes —
+     * only the stop time moves. Swaps to the processed loop buffer if the
+     * voice is not looping yet, entering at the natural level for its
+     * elapsed time. Dead-type notes ignore the pedal.
      */
 
   }, {
@@ -849,20 +884,31 @@ function () {
     value: function _extendVoice(voice) {
       var _this3 = this;
 
+      var data = this._loopVoiceData(voice.name);
+
+      if (!data) {
+        return;
+      }
+
+      var analysis = data.analysis,
+          buffer = data.buffer;
+
       var context = this._ensureContext();
 
       var now = context.currentTime;
       var endAt = voice.startedAt + Math.max(voice.seconds, SUSTAIN_SECONDS);
-      var remaining = Math.max(endAt - now, MIN_DECAY_SECONDS);
+      var inaudibleAt = voice.startedAt + Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["inaudibleAfter"])(analysis); // decayEnd can land in the past for a fast-decaying note caught late
+
+      var decayEnd = Math.max(Math.min(endAt, inaudibleAt), now + 0.01);
 
       if (!voice.source.loop) {
         var oldSource = voice.source;
         var oldGain = voice.gain;
         var source = context.createBufferSource();
-        source.buffer = this._createSustainBuffer(oldSource.buffer);
+        source.buffer = buffer;
         source.loop = true;
-        source.loopStart = voice.natural * LOOP_START_RATIO;
-        source.loopEnd = voice.natural * LOOP_END_RATIO;
+        source.loopStart = analysis.loopStart;
+        source.loopEnd = analysis.loopEnd;
         var gain = context.createGain();
         source.connect(gain);
         gain.connect(context.destination);
@@ -875,10 +921,9 @@ function () {
           }
         };
 
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(1, now + SWAP_SECONDS);
+        gain.gain.setValueAtTime(Math.max(Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["naturalGainAt"])(analysis, now - voice.startedAt), 0.001), now);
         oldGain.gain.cancelScheduledValues(now);
-        oldGain.gain.setValueAtTime(1, now);
+        oldGain.gain.setValueAtTime(oldGain.gain.value, now);
         oldGain.gain.linearRampToValueAtTime(0, now + SWAP_SECONDS);
         oldSource.onended = null;
 
@@ -886,19 +931,23 @@ function () {
           oldSource.stop(now + SWAP_SECONDS + 0.01);
         } catch (e) {}
 
-        source.start(now, voice.natural * LOOP_START_RATIO);
+        source.start(now, analysis.loopStart);
         voice.source = source;
         voice.gain = gain;
-        gain.gain.setTargetAtTime(0, now + SWAP_SECONDS, remaining / LN_AUDIBLE);
       } else {
         var param = voice.gain.gain;
         param.cancelScheduledValues(now);
-        param.setValueAtTime(param.value, now);
-        param.setTargetAtTime(0, now, remaining / LN_AUDIBLE);
+        param.setValueAtTime(Math.max(Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["naturalGainAt"])(analysis, now - voice.startedAt), 0.001), now);
+      }
+
+      voice.gain.gain.exponentialRampToValueAtTime(Math.max(Object(_sustain_js__WEBPACK_IMPORTED_MODULE_2__["naturalGainAt"])(analysis, decayEnd - voice.startedAt), 0.001), decayEnd);
+
+      if (endAt < inaudibleAt) {
+        voice.gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
       }
 
       try {
-        voice.source.stop(endAt + 0.02);
+        voice.source.stop(Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02);
       } catch (e) {}
     }
     /**
@@ -1007,6 +1056,192 @@ var NOTES = [];
 
 for (var abs = MIN_ABS; abs <= MAX_ABS; abs++) {
   NOTES.push(NAMES[abs % 12] + Math.floor(abs / 12));
+}
+
+/***/ }),
+
+/***/ "./src/sustain.js":
+/*!************************!*\
+  !*** ./src/sustain.js ***!
+  \************************/
+/*! exports provided: analyzeSustain, buildLoopChannels, naturalGainAt, inaudibleAfter */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "analyzeSustain", function() { return analyzeSustain; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "buildLoopChannels", function() { return buildLoopChannels; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "naturalGainAt", function() { return naturalGainAt; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "inaudibleAfter", function() { return inaudibleAfter; });
+var WINDOW_SECONDS = 0.05;
+var ATTACK_FIT_DELAY = 0.3;
+var AUDIBLE_DROP_DB = 55;
+var AUDIBLE_FLOOR_DBFS = -78;
+var MIN_SUSTAIN_SECONDS = 0.8;
+var MIN_LOOP_SECONDS = 0.4;
+var ATTACK_SETTLE = 0.15;
+var LOOP_TARGET_SECONDS = 1.2;
+var LOOP_END_MARGIN = 0.05;
+var MIN_DB_PER_SEC = 0.5;
+var MAX_DB_PER_SEC = 60;
+var BLEND_SECONDS = 0.08;
+
+var clamp = function clamp(v, lo, hi) {
+  return Math.min(Math.max(v, lo), hi);
+};
+/**
+ * Measure a decoded sample's sustain envelope.
+ * buffer: { numberOfChannels, length, sampleRate, getChannelData(ch) }.
+ * Returns times in seconds: { peakTime, audibleEnd, decayDbPerSec,
+ * loopStart, loopEnd, sustaining }.
+ */
+
+
+function analyzeSustain(buffer) {
+  var numberOfChannels = buffer.numberOfChannels,
+      length = buffer.length,
+      sampleRate = buffer.sampleRate;
+  var win = Math.max(1, Math.floor(WINDOW_SECONDS * sampleRate));
+  var count = Math.floor(length / win);
+  var levelDb = new Float64Array(count);
+
+  for (var w = 0; w < count; w++) {
+    var sum = 0;
+    var from = w * win;
+
+    for (var ch = 0; ch < numberOfChannels; ch++) {
+      var data = buffer.getChannelData(ch);
+
+      for (var i = from; i < from + win; i++) {
+        sum += data[i] * data[i];
+      }
+    }
+
+    var rms = Math.sqrt(sum / (win * numberOfChannels));
+    levelDb[w] = 20 * Math.log10(Math.max(rms, 1e-9));
+  }
+
+  var peak = 0;
+
+  for (var _w = 1; _w < count; _w++) {
+    if (levelDb[_w] > levelDb[peak]) {
+      peak = _w;
+    }
+  }
+
+  var peakTime = (peak + 0.5) * WINDOW_SECONDS;
+  var peakDb = levelDb[peak];
+  var threshold = Math.max(peakDb - AUDIBLE_DROP_DB, AUDIBLE_FLOOR_DBFS);
+  var last = count - 1;
+
+  while (last > peak && levelDb[last] <= threshold) {
+    last--;
+  }
+
+  var audibleEnd = Math.min((last + 1) * WINDOW_SECONDS, length / sampleRate); // least-squares fit of level vs time over the settled decay region
+
+  var t0 = peakTime + ATTACK_FIT_DELAY;
+  var n = 0,
+      sx = 0,
+      sy = 0,
+      sxx = 0,
+      sxy = 0;
+
+  for (var _w2 = 0; _w2 <= last; _w2++) {
+    var t = (_w2 + 0.5) * WINDOW_SECONDS;
+
+    if (t < t0) {
+      continue;
+    }
+
+    n++;
+    sx += t;
+    sy += levelDb[_w2];
+    sxx += t * t;
+    sxy += t * levelDb[_w2];
+  }
+
+  var decayDbPerSec = MIN_DB_PER_SEC;
+
+  if (n >= 2) {
+    var denom = n * sxx - sx * sx;
+
+    if (denom > 0) {
+      var slope = (n * sxy - sx * sy) / denom;
+      decayDbPerSec = clamp(-slope, MIN_DB_PER_SEC, MAX_DB_PER_SEC);
+    }
+  }
+
+  var loopStart = Math.max(peakTime + ATTACK_SETTLE, audibleEnd - LOOP_TARGET_SECONDS);
+  var loopEnd = audibleEnd - LOOP_END_MARGIN;
+  var sustaining = audibleEnd - peakTime >= MIN_SUSTAIN_SECONDS && loopEnd - loopStart >= MIN_LOOP_SECONDS;
+  return {
+    peakTime: peakTime,
+    audibleEnd: audibleEnd,
+    decayDbPerSec: decayDbPerSec,
+    loopStart: loopStart,
+    loopEnd: loopEnd,
+    sustaining: sustaining
+  };
+}
+/**
+ * Full-length per-channel copies with the loop region de-tilted (the measured
+ * decay ramped out, so loop start/end levels match) and an 80ms seam morphed
+ * into the material just before loopStart, so a [loopStart, loopEnd) loop
+ * wraps without a click. The input buffer is never mutated.
+ */
+
+function buildLoopChannels(buffer, analysis) {
+  var numberOfChannels = buffer.numberOfChannels,
+      length = buffer.length,
+      sampleRate = buffer.sampleRate;
+  var loopStartFrame = Math.floor(analysis.loopStart * sampleRate);
+  var loopEndFrame = Math.min(Math.floor(analysis.loopEnd * sampleRate), length);
+  var blend = Math.min(Math.floor(BLEND_SECONDS * sampleRate), loopStartFrame);
+  var out = [];
+
+  for (var ch = 0; ch < numberOfChannels; ch++) {
+    var data = buffer.getChannelData(ch);
+    var target = new Float32Array(length);
+    target.set(data);
+
+    for (var f = loopStartFrame; f < loopEndFrame; f++) {
+      var t = (f - loopStartFrame) / sampleRate;
+      target[f] *= Math.pow(10, analysis.decayDbPerSec * t / 20);
+    }
+
+    for (var i = 0; i < blend; i++) {
+      var _t = i / blend;
+
+      var idx = loopEndFrame - blend + i;
+      target[idx] = target[idx] * (1 - _t) + target[loopStartFrame - blend + i] * _t;
+    }
+
+    out.push(target);
+  }
+
+  return out;
+}
+/**
+ * Gain a looping note should have `elapsed` seconds after note start:
+ * full level until loopStart, then the measured decay, clamped to
+ * [-60 dB, 0 dB].
+ */
+
+function naturalGainAt(analysis, elapsed) {
+  if (elapsed <= analysis.loopStart) {
+    return 1;
+  }
+
+  var gain = Math.pow(10, -analysis.decayDbPerSec * (elapsed - analysis.loopStart) / 20);
+  return clamp(gain, 0.001, 1);
+}
+/**
+ * Seconds after note start when the natural decay reaches -60 dB.
+ */
+
+function inaudibleAfter(analysis) {
+  return analysis.loopStart + 60 / analysis.decayDbPerSec;
 }
 
 /***/ })
