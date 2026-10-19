@@ -9,6 +9,7 @@ const LOOP_TARGET_SECONDS = 1.2;
 const LOOP_END_MARGIN = 0.05;
 const MIN_DB_PER_SEC = 0.5;
 const MAX_DB_PER_SEC = 60;
+const BLEND_SECONDS = 0.08;
 
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 
@@ -82,4 +83,35 @@ export function analyzeSustain(buffer) {
     && (loopEnd - loopStart >= MIN_LOOP_SECONDS);
 
   return { peakTime, audibleEnd, decayDbPerSec, loopStart, loopEnd, sustaining };
+}
+
+/**
+ * Full-length per-channel copies with the loop region de-tilted (the measured
+ * decay ramped out, so loop start/end levels match) and an 80ms seam morphed
+ * into the material just before loopStart, so a [loopStart, loopEnd) loop
+ * wraps without a click. The input buffer is never mutated.
+ */
+export function buildLoopChannels(buffer, analysis) {
+  const { numberOfChannels, length, sampleRate } = buffer;
+  const loopStartFrame = Math.floor(analysis.loopStart * sampleRate);
+  const loopEndFrame = Math.min(Math.floor(analysis.loopEnd * sampleRate), length);
+  const blend = Math.min(Math.floor(BLEND_SECONDS * sampleRate), loopStartFrame);
+  const out = [];
+
+  for (let ch = 0; ch < numberOfChannels; ch++) {
+    const data = buffer.getChannelData(ch);
+    const target = new Float32Array(length);
+    target.set(data);
+    for (let f = loopStartFrame; f < loopEndFrame; f++) {
+      const t = (f - loopStartFrame) / sampleRate;
+      target[f] *= Math.pow(10, analysis.decayDbPerSec * t / 20);
+    }
+    for (let i = 0; i < blend; i++) {
+      const t = i / blend;
+      const idx = loopEndFrame - blend + i;
+      target[idx] = target[idx] * (1 - t) + target[loopStartFrame - blend + i] * t;
+    }
+    out.push(target);
+  }
+  return out;
 }
