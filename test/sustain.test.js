@@ -108,7 +108,7 @@ test('gain is 1 before loopStart and decays at the measured rate', () => {
   const a = { loopStart: 1.8, decayDbPerSec: 10 };
   assert.equal(naturalGainAt(a, 1.0), 1);
   assert.equal(naturalGainAt(a, 1.8), 1);
-  assert.ok(Math.abs(naturalGainAt(a, 3.8) - 0.01) < 1e-6); // 2s · 10 dB/s = -20 dB
+  assert.ok(Math.abs(naturalGainAt(a, 3.8) - 0.1) < 1e-6); // 2s · 10 dB/s = -20 dB = 0.1 振幅
 });
 
 test('inaudibleAfter hits -60 dB then clamps', () => {
