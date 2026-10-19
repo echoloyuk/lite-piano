@@ -11,7 +11,7 @@
   "scripts": {
     "start": "NODE_OPTIONS=--openssl-legacy-provider webpack-dev-server --watch",
     "build": "NODE_OPTIONS=--openssl-legacy-provider webpack --config webpack.config.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/sustain.test.js"
   },
   "author": "machi",
   "license": "ISC",
