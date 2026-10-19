@@ -7,14 +7,9 @@ const LOAD_CONCURRENCY = 6;
 const RELEASE_SECONDS = 0.3;
 const MIN_FADE_SECONDS = 0.05;
 const MIN_NOTE_SECONDS = 0.1;
-const MIN_DECAY_SECONDS = 0.3;
 const SUSTAIN_SECONDS = 10;
-const LOOP_START_RATIO = 0.45;
-const LOOP_END_RATIO = 0.95;
-const LOOP_BLEND_SECONDS = 0.08;
 const SWAP_SECONDS = 0.06;
 const DECIDE_BEFORE_END_SECONDS = 0.05;
-const LN_AUDIBLE = Math.log(1000);
 
 export default class LitePiano {
   constructor(options = {}) {
@@ -305,48 +300,33 @@ export default class LitePiano {
   }
 
   /**
-   * Copy of the sample with an 80ms crossfade baked in just before
-   * loopEnd, morphing the loop tail into the material right before
-   * loopStart, so a [loopStart, loopEnd) loop wraps seamlessly.
-   */
-  _createSustainBuffer(buffer) {
-    const context = this._ensureContext();
-    const loopStart = Math.floor(buffer.length * LOOP_START_RATIO);
-    const loopEnd = Math.floor(buffer.length * LOOP_END_RATIO);
-    const blend = Math.min(Math.floor(buffer.sampleRate * LOOP_BLEND_SECONDS), loopStart);
-    const out = context.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
-    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-      const data = buffer.getChannelData(ch);
-      const target = out.getChannelData(ch);
-      target.set(data);
-      for (let i = 0; i < blend; i++) {
-        const t = i / blend;
-        const idx = loopEnd - blend + i;
-        target[idx] = data[idx] * (1 - t) + data[loopStart - blend + i] * t;
-      }
-    }
-    return out;
-  }
-
-  /**
    * A held pedal turns the note into a long one: keep it sounding for
-   * SUSTAIN_SECONDS from note-on. Swaps to the seamless loop if the
-   * voice is not looping yet, then re-shapes the decay to the new end.
+   * SUSTAIN_SECONDS from note-on. The measured decay rate never changes —
+   * only the stop time moves. Swaps to the processed loop buffer if the
+   * voice is not looping yet, entering at the natural level for its
+   * elapsed time. Dead-type notes ignore the pedal.
    */
   _extendVoice(voice) {
+    const data = this._loopVoiceData(voice.name);
+    if (!data) {
+      return;
+    }
+    const { analysis, buffer } = data;
     const context = this._ensureContext();
     const now = context.currentTime;
     const endAt = voice.startedAt + Math.max(voice.seconds, SUSTAIN_SECONDS);
-    const remaining = Math.max(endAt - now, MIN_DECAY_SECONDS);
+    const inaudibleAt = voice.startedAt + inaudibleAfter(analysis);
+    // decayEnd can land in the past for a fast-decaying note caught late
+    const decayEnd = Math.max(Math.min(endAt, inaudibleAt), now + 0.01);
 
     if (!voice.source.loop) {
       const oldSource = voice.source;
       const oldGain = voice.gain;
       const source = context.createBufferSource();
-      source.buffer = this._createSustainBuffer(oldSource.buffer);
+      source.buffer = buffer;
       source.loop = true;
-      source.loopStart = voice.natural * LOOP_START_RATIO;
-      source.loopEnd = voice.natural * LOOP_END_RATIO;
+      source.loopStart = analysis.loopStart;
+      source.loopEnd = analysis.loopEnd;
       const gain = context.createGain();
       source.connect(gain);
       gain.connect(context.destination);
@@ -356,27 +336,29 @@ export default class LitePiano {
           this._voices.delete(voice.name);
         }
       };
-      gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(1, now + SWAP_SECONDS);
+      gain.gain.setValueAtTime(Math.max(naturalGainAt(analysis, now - voice.startedAt), 0.001), now);
       oldGain.gain.cancelScheduledValues(now);
-      oldGain.gain.setValueAtTime(1, now);
+      oldGain.gain.setValueAtTime(oldGain.gain.value, now);
       oldGain.gain.linearRampToValueAtTime(0, now + SWAP_SECONDS);
       oldSource.onended = null;
       try {
         oldSource.stop(now + SWAP_SECONDS + 0.01);
       } catch (e) {}
-      source.start(now, voice.natural * LOOP_START_RATIO);
+      source.start(now, analysis.loopStart);
       voice.source = source;
       voice.gain = gain;
-      gain.gain.setTargetAtTime(0, now + SWAP_SECONDS, remaining / LN_AUDIBLE);
     } else {
       const param = voice.gain.gain;
       param.cancelScheduledValues(now);
-      param.setValueAtTime(param.value, now);
-      param.setTargetAtTime(0, now, remaining / LN_AUDIBLE);
+      param.setValueAtTime(Math.max(naturalGainAt(analysis, now - voice.startedAt), 0.001), now);
+    }
+    voice.gain.gain.exponentialRampToValueAtTime(
+      Math.max(naturalGainAt(analysis, decayEnd - voice.startedAt), 0.001), decayEnd);
+    if (endAt < inaudibleAt) {
+      voice.gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
     }
     try {
-      voice.source.stop(endAt + 0.02);
+      voice.source.stop(Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02);
     } catch (e) {}
   }
 
