@@ -2,7 +2,7 @@
 
 A mini piano component based on the JavaScript Web Audio API, for playing real piano key sounds in a web app.
 
-Since 2.0, every one of the 88 keys plays its own real sample (the [FluidR3_GM](https://musical-artifacts.com/artifacts/794) acoustic grand piano soundfont, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)) loaded from a CDN — no more pitch shifting from a handful of base tones. 2.0 also adds a sustain pedal API and a loading state machine.
+Since 2.0, every one of the 88 keys plays its own real sample (the [FluidR3_GM](https://musical-artifacts.com/artifacts/794) acoustic grand piano soundfont, [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)) loaded from a CDN — no more pitch shifting from a handful of base tones. 2.0 also adds a sustain pedal API, a loading state machine, and a natural sustain model: each note's decay rate is measured from its sample, so long notes loop seamlessly and die out at their own speed. See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 This is a [Demo](https://www.himachi.cn/demo/lite-piano/index.html), which introduces a [musicXML](https://en.wikipedia.org/wiki/MusicXML) score of "Canon D Major" and parses it into lite-piano recognizable parameters to play automatically.
 
@@ -34,8 +34,11 @@ Node.js (SSR) can import the package safely — the constructor does not touch a
 - `git clone`
 - `cd lite-piano`
 - `npm install`
-- `npm run start` start webpack-dev-server.
-- Open the browser `127.0.0.1:9090/demo/index.html`
+- `npm run start` starts webpack-dev-server at `http://127.0.0.1:9090`.
+- Demo pages:
+  - `http://127.0.0.1:9090/demo.html` — minimal playback example
+  - `http://127.0.0.1:9090/ui-demo.html` — clickable 88-key UI with sustain-pedal and staccato toggles
+  - `http://127.0.0.1:9090/music-demo.html` — a MusicXML score (Canon in D) parsed and auto-played
 
 ## How to use
 
@@ -62,8 +65,8 @@ Use your own sample host if you prefer: `new LitePiano({ cdnBaseUrl: 'https://yo
 | --- | --- |
 | `resume()` | Returns a Promise. Unlocks the AudioContext; call it from a user gesture before playing. |
 | `load()` | Returns a Promise. Loads all 88 samples; safe to call again to retry after an `error`. |
-| `oneShot(step, octave, alter, duration?)` | Plays a key and returns the audio source. `step`: `C`–`B`. `octave`: 0–8. `alter`: `1` sharp, `-1` flat, `0` natural — `oneShot('C', 4, 1)` and `oneShot('D', 4, -1)` are the same key (Db4). Optional `duration` (seconds): the note is stopped after it elapses; omit it to let the sample decay naturally. |
-| `pedalDown()` / `pedalUp()` | Sustain pedal. While down, notes whose `duration` ends keep sounding; `pedalUp()` releases them together. Idempotent and safe in any status. |
+| `oneShot(step, octave, alter, duration?)` | Plays a key and returns the audio source. `step`: `C`–`B`. `octave`: 0–8. `alter`: `1` sharp, `-1` flat, `0` natural — `oneShot('C', 4, 1)` and `oneShot('D', 4, -1)` are the same key (Db4). Optional `duration` (seconds) is the note's lifetime: shorter than the sample cuts it at note-off with a smooth fade (staccato); longer than the sample really sustains loops seamlessly at the note's own measured decay rate; omit it to let the sample decay naturally. |
+| `pedalDown()` / `pedalUp()` | Sustain pedal. A note whose `duration` ends while the pedal is down keeps sounding for up to 10 s from note-on, following its own decay curve; `pedalUp()` releases all held notes together. Idempotent and safe in any status. |
 | `status` | `'idle' \| 'loading' \| 'ready' \| 'error'`. |
 | `progress` | `{ loaded, total }` — `total` is 88. |
 | `onStatusChange` | Assign a callback `(status) => {}` to watch loading state. |
@@ -75,6 +78,16 @@ piano.pedalDown();
 piano.oneShot('G', 4, 0, 0.5);     // still sustained after 0.5s
 piano.pedalUp();                   // released now
 ```
+
+## Sustain model
+
+Real piano samples die out at very different speeds across the keyboard. The first time a note needs to ring past its sample, lite-piano measures that sample's decay rate (dB/s) and builds a de-tilted copy of its sustain region that loops without a click; a gain envelope re-applies the measured decay on top. As a result:
+
+- short notes sound exactly like the raw sample, ending in a smooth fade;
+- long notes ring past the sample's natural end with no level jump and no loop seam;
+- the sustain pedal only moves the envelope and the stop time — the playing audio source is never swapped.
+
+Notes whose real sustain is too short to loop (typical for the highest keys) are left alone and simply die out; the pedal does not revive them.
 
 ## Migrating from 1.x
 

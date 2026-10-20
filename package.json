@@ -6,7 +6,8 @@
   "module": "src/index.js",
   "files": [
     "dist",
-    "src"
+    "src",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "start": "NODE_OPTIONS=--openssl-legacy-provider webpack-dev-server --watch",
