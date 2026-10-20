@@ -8,7 +8,6 @@ const RELEASE_SECONDS = 0.3;
 const MIN_FADE_SECONDS = 0.05;
 const MIN_NOTE_SECONDS = 0.1;
 const SUSTAIN_SECONDS = 10;
-const SWAP_SECONDS = 0.06;
 const DECIDE_BEFORE_END_SECONDS = 0.05;
 
 export default class LitePiano {
@@ -232,53 +231,50 @@ export default class LitePiano {
     } else {
       const seconds = Math.max(Number(duration) || 0, MIN_NOTE_SECONDS);
       const startedAt = context.currentTime;
-      const natural = this._buffers[name].duration;
       const endAt = startedAt + seconds;
       voice.startedAt = startedAt;
       voice.seconds = seconds;
-      voice.natural = natural;
 
-      if (seconds > 0.9 * natural) {
-        const data = this._loopVoiceData(name);
-        if (data && seconds > data.analysis.audibleEnd) {
-          // longer than the note really sustains: loop the de-tilted sustain
-          // region while the gain envelope keeps the measured decay rate
-          const analysis = data.analysis;
-          source.buffer = data.buffer;
-          source.loop = true;
-          source.loopStart = analysis.loopStart;
-          source.loopEnd = analysis.loopEnd;
-          const inaudibleAt = startedAt + inaudibleAfter(analysis);
-          const decayEnd = Math.min(endAt, inaudibleAt);
-          gain.gain.setValueAtTime(1, startedAt + analysis.loopStart);
-          gain.gain.exponentialRampToValueAtTime(
-            Math.max(naturalGainAt(analysis, decayEnd - startedAt), 0.001), decayEnd);
-          if (endAt < inaudibleAt) {
-            voice.fade = RELEASE_SECONDS;
-            gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
-          }
-          voice.stopAt = Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02;
-          try {
-            source.stop(voice.stopAt);
-          } catch (e) {}
-        } else if (seconds < natural) {
-          // ends inside the audible region: raw sample + fade at note-off
-          source.buffer = this._buffers[name];
-          const fade = Math.min(RELEASE_SECONDS, Math.max(MIN_FADE_SECONDS, seconds / 2));
-          voice.fade = fade;
-          gain.gain.setValueAtTime(1, endAt);
-          gain.gain.linearRampToValueAtTime(0, endAt + fade);
-        } else {
-          // dead-type note with a long duration: plays out and dies on its own
-          source.buffer = this._buffers[name];
+      const data = this._loopVoiceData(name);
+      if (data) {
+        // A sustaining note plays the de-tilted loop buffer from the very
+        // start while the gain envelope re-applies the measured decay, so a
+        // short note sounds identical to the raw sample — and a held pedal
+        // only re-aims the envelope, never swaps the source mid-playback.
+        const analysis = data.analysis;
+        source.buffer = data.buffer;
+        source.loop = true;
+        source.loopStart = analysis.loopStart;
+        source.loopEnd = analysis.loopEnd;
+        const fade = Math.min(RELEASE_SECONDS, Math.max(MIN_FADE_SECONDS, seconds / 2));
+        voice.fade = fade;
+        const loopAt = startedAt + analysis.loopStart;
+        const inaudibleAt = startedAt + inaudibleAfter(analysis);
+        const decayEnd = Math.min(endAt, inaudibleAt);
+        if (decayEnd > loopAt) {
+          gain.gain.setValueAtTime(1, loopAt);
+          gain.gain.exponentialRampToValueAtTime(naturalGainAt(analysis, decayEnd - startedAt), decayEnd);
         }
-      } else {
-        // shorter than the sample: hold full level until note-off, then fade
+        if (endAt < inaudibleAt) {
+          if (decayEnd <= loopAt) {
+            gain.gain.setValueAtTime(1, endAt);
+          }
+          gain.gain.linearRampToValueAtTime(0, endAt + fade);
+        }
+        voice.stopAt = Math.min(endAt + fade, inaudibleAt) + 0.02;
+        try {
+          source.stop(voice.stopAt);
+        } catch (e) {}
+      } else if (seconds < this._buffers[name].duration) {
+        // dead-type note cut short: raw sample + fade at note-off
         source.buffer = this._buffers[name];
         const fade = Math.min(RELEASE_SECONDS, Math.max(MIN_FADE_SECONDS, seconds / 2));
         voice.fade = fade;
         gain.gain.setValueAtTime(1, endAt);
         gain.gain.linearRampToValueAtTime(0, endAt + fade);
+      } else {
+        // dead-type note with a long duration: plays out and dies on its own
+        source.buffer = this._buffers[name];
       }
 
       // decide slightly before the fade runs so a held pedal cancels it seamlessly
@@ -307,66 +303,34 @@ export default class LitePiano {
   /**
    * A held pedal turns the note into a long one: keep it sounding for
    * SUSTAIN_SECONDS from note-on. The measured decay rate never changes —
-   * only the stop time moves. Swaps to the processed loop buffer if the
-   * voice is not looping yet, entering at the natural level for its
-   * elapsed time. Dead-type notes ignore the pedal.
+   * only the envelope target and stop time move. The source has been looping
+   * the de-tilted buffer since note-on, so there is nothing to swap.
+   * Dead-type notes ignore the pedal.
    */
   _extendVoice(voice) {
     const data = this._loopVoiceData(voice.name);
-    if (!data) {
+    if (!data || voice.released) {
       return;
     }
-    const { analysis, buffer } = data;
+    const { analysis } = data;
     const context = this._ensureContext();
     const now = context.currentTime;
     const endAt = voice.startedAt + Math.max(voice.seconds, SUSTAIN_SECONDS);
     const inaudibleAt = voice.startedAt + inaudibleAfter(analysis);
     // decayEnd can land in the past for a fast-decaying note caught late
     const decayEnd = Math.max(Math.min(endAt, inaudibleAt), now + 0.01);
-
-    if (!voice.source.loop) {
-      const oldSource = voice.source;
-      const oldGain = voice.gain;
-      const source = context.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      source.loopStart = analysis.loopStart;
-      source.loopEnd = analysis.loopEnd;
-      const gain = context.createGain();
-      source.connect(gain);
-      gain.connect(context.destination);
-      source.onended = () => {
-        this._sustained.delete(voice);
-        if (this._voices.get(voice.name) === voice) {
-          this._voices.delete(voice.name);
-        }
-      };
-      const elapsed = now - voice.startedAt;
-      const level = Math.max(naturalGainAt(analysis, elapsed), 0.001);
-      gain.gain.setValueAtTime(level, now);
-      const loopAt = voice.startedAt + analysis.loopStart;
-      if (loopAt > now) {
-        gain.gain.setValueAtTime(level, loopAt);
-      }
-      oldGain.gain.cancelScheduledValues(now);
-      oldGain.gain.setValueAtTime(oldGain.gain.value, now);
-      oldGain.gain.linearRampToValueAtTime(0, now + SWAP_SECONDS);
-      oldSource.onended = null;
-      try {
-        oldSource.stop(now + SWAP_SECONDS + 0.01);
-      } catch (e) {}
-      source.start(now, Math.min(elapsed, analysis.loopStart));
-      voice.source = source;
-      voice.gain = gain;
-    } else {
-      const param = voice.gain.gain;
-      param.cancelScheduledValues(now);
-      param.setValueAtTime(Math.max(naturalGainAt(analysis, now - voice.startedAt), 0.001), now);
+    const param = voice.gain.gain;
+    param.cancelScheduledValues(now);
+    // the ramp cancelled above follows naturalGainAt exactly, so re-anchoring
+    // at the natural level for the elapsed time is continuous
+    param.setValueAtTime(naturalGainAt(analysis, now - voice.startedAt), now);
+    const loopAt = voice.startedAt + analysis.loopStart;
+    if (loopAt > now) {
+      param.setValueAtTime(1, loopAt);
     }
-    voice.gain.gain.exponentialRampToValueAtTime(
-      Math.max(naturalGainAt(analysis, decayEnd - voice.startedAt), 0.001), decayEnd);
+    param.exponentialRampToValueAtTime(naturalGainAt(analysis, decayEnd - voice.startedAt), decayEnd);
     if (endAt < inaudibleAt) {
-      voice.gain.gain.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
+      param.linearRampToValueAtTime(0, endAt + RELEASE_SECONDS);
     }
     voice.stopAt = Math.min(endAt + RELEASE_SECONDS, inaudibleAt) + 0.02;
     try {

@@ -43,7 +43,7 @@ function fakeVoice(piano, context, seconds) {
 
 const ANALYSIS = { peakTime: 0.05, audibleEnd: 2.0, decayDbPerSec: 10, loopStart: 0.8, loopEnd: 1.95, sustaining: true };
 
-test('pedal swap starts the new source at elapsed time, not loopStart', () => {
+test('pedal extension keeps the same source and only re-aims the envelope', () => {
   const piano = new LitePiano();
   const context = mockContext();
   piano.context = context;
@@ -52,16 +52,41 @@ test('pedal swap starts the new source at elapsed time, not loopStart', () => {
 
   context.currentTime = 0.45; // caught before loopStart (0.8)
   const voice = fakeVoice(piano, context, 0.5);
+  const source = voice.source;
   piano._extendVoice(voice);
 
-  assert.deepEqual(voice.source.startArgs, [0.45, 0.45]);
-  assert.equal(voice.source.loop, true);
-  // gain stays flat until loop entry, then decays at the measured rate
+  assert.equal(voice.source, source); // no mid-playback swap
+  assert.deepEqual(source.startArgs, null); // never restarted
+  // gain stays flat until loopStart, then decays at the measured rate
   const events = voice.gain.gain.events;
-  assert.deepEqual(events[0], ['set', 1, 0.45]);
-  assert.deepEqual(events[1], ['set', 1, 0.8]);
-  assert.equal(events[2][0], 'exp');
-  assert.ok(Math.abs(events[2][2] - 6.8) < 1e-9); // decayEnd = inaudibleAt = 0.8 + 60/10
+  assert.deepEqual(events[0], ['cancel', 0.45]);
+  assert.deepEqual(events[1], ['set', 1, 0.45]);
+  assert.deepEqual(events[2], ['set', 1, 0.8]);
+  assert.equal(events[3][0], 'exp');
+  assert.ok(Math.abs(events[3][2] - 6.8) < 1e-9); // decayEnd = inaudibleAt = 0.8 + 60/10
+  assert.deepEqual(source.stops, [6.8 + 0.02]);
+});
+
+test('pedal extension past loopStart re-anchors at the natural level', () => {
+  const piano = new LitePiano();
+  const context = mockContext();
+  piano.context = context;
+  const buffer = context.createBuffer(1, 1000, 8000);
+  piano._loopVoiceData = () => ({ analysis: ANALYSIS, buffer });
+
+  context.currentTime = 2.0; // past loopStart (0.8), decay already under way
+  const voice = fakeVoice(piano, context, 0.5);
+  piano._extendVoice(voice);
+
+  const events = voice.gain.gain.events;
+  assert.deepEqual(events[0], ['cancel', 2.0]);
+  assert.equal(events[1][0], 'set');
+  assert.equal(events[1][2], 2.0);
+  // natural level at 2s elapsed: 10^(-10 * (2.0 - 0.8) / 20)
+  assert.ok(Math.abs(events[1][1] - Math.pow(10, -0.6)) < 1e-9);
+  assert.equal(events[2][0], 'exp'); // straight into the decay ramp, no flat re-anchor
+  assert.ok(Math.abs(events[2][1] - 0.001) < 1e-9); // -60 dB at inaudibleAt
+  assert.ok(Math.abs(events[2][2] - 6.8) < 1e-9);
 });
 
 test('note-off timer never pushes a loop voice past its inaudible stop', () => {
