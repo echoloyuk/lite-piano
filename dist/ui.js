@@ -146,6 +146,7 @@ function () {
 
     this.piano = new _src_index_js__WEBPACK_IMPORTED_MODULE_0__["default"](options);
     this.aniTimmer = {};
+    this.staccatoMode = false;
   }
 
   _createClass(PianoUI, [{
@@ -221,7 +222,7 @@ function () {
       }
 
       keyDom.classList.add('playing');
-      this.piano.oneShot(step, octave, alter, duration);
+      this.piano.oneShot(step, octave, alter, this.staccatoMode ? 0.2 : duration);
 
       try {
         clearTimeout(this.aniTimmer[id]);

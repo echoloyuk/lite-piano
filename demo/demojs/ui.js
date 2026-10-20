@@ -6,6 +6,7 @@ export default class PianoUI {
   constructor(options) {
     this.piano = new Piano(options);
     this.aniTimmer = {};
+    this.staccatoMode = false;
   }
 
   initPiano() {
@@ -74,7 +75,7 @@ export default class PianoUI {
     }
 
     keyDom.classList.add('playing');
-    this.piano.oneShot(step, octave, alter, duration);
+    this.piano.oneShot(step, octave, alter, this.staccatoMode ? 0.2 : duration);
     try {
       clearTimeout(this.aniTimmer[id]);
     } catch (e) {}

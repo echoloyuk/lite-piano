@@ -10,7 +10,7 @@
   #main {
     height: 140px;
   }
-  #pedal.on {
+  #pedal.on, #staccato.on {
     background: #333;
     color: #fff;
   }
@@ -20,6 +20,7 @@
   <div id="status">loading: 0 / 88</div>
   <div id="main"></div>
   <button id="pedal" style="margin-top:12px;padding:8px 16px;">Sustain Pedal: OFF</button>
+  <button id="staccato" style="margin-top:12px;padding:8px 16px;">Staccato: OFF</button>
   <script src="/ui.js"></script>
   <script>
   window.onload = () => {
@@ -61,6 +62,13 @@
       if (e.code === 'Space' && !pedalOn) {
         ui.piano.pedalUp();
       }
+    });
+
+    const staccatoDom = document.getElementById('staccato');
+    staccatoDom.addEventListener('click', () => {
+      ui.staccatoMode = !ui.staccatoMode;
+      staccatoDom.classList.toggle('on', ui.staccatoMode);
+      staccatoDom.textContent = ui.staccatoMode ? 'Staccato: ON' : 'Staccato: OFF';
     });
     window.ui = ui;
   }
