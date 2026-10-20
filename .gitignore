@@ -10,5 +10,6 @@ npm-debug.log
 .sass-cache/
 .project
 mods/.sass-cache/
+.qoder/
 !.gitignore
 !.editorconfig

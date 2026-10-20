@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git log --oneline --follow -- src/data/data.js | tail -5; node -e \"\nconst b64 = require\\('fs'\\).readFileSync\\('src/data/data.js','utf8'\\).match\\(/'A': '\\([A-Za-z0-9+/=]+\\)/\\)[1];\nconst buf = Buffer.from\\(b64, 'base64'\\);\nconsole.log\\('riff:', buf.toString\\('ascii',0,4\\), 'fmt:', buf.toString\\('ascii',8,12\\)\\);\nconsole.log\\('channels:', buf.readUInt16LE\\(22\\), 'sampleRate:', buf.readUInt32LE\\(24\\), 'bits:', buf.readUInt16LE\\(34\\)\\);\nconst dataSize = buf.readUInt32LE\\(40\\);\nconst secs = dataSize / \\(buf.readUInt32LE\\(24\\) * buf.readUInt16LE\\(22\\) * \\(buf.readUInt16LE\\(34\\)/8\\)\\);\nconsole.log\\('duration ~', secs.toFixed\\(2\\), 's'\\);\n\")"
-    ]
-  }
-}

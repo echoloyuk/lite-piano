@@ -32,7 +32,7 @@ Guidance for AI coding agents working in this repository. Follow this file befor
 
 ## Requirement Specs (superpowers-spec)
 
-This repo vendors a converted subset of [obra/superpowers](https://github.com/obra/superpowers) as its requirement-spec toolchain: plugin root `superpowers-spec/`, exposed to the agent host via the `.qoder/skills` symlink.
+This repo vendors a converted subset of [obra/superpowers](https://github.com/obra/superpowers) as its requirement-spec toolchain: plugin root `superpowers-spec/`, exposed to the agent host via the `.qoder/skills` symlink (`.qoder/` is git-ignored; after a fresh clone, recreate it with `ln -s ../superpowers-spec/skills .qoder/skills`).
 
 1. **`brainstorming`** — MUST run before any creative work (new features, behavior changes, new plans). Clarify the real requirement through questions first. Output: design doc at `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`.
 2. **`writing-plans`** — once a spec/design exists, break it into a bite-sized implementation plan. Output: `docs/superpowers/plans/YYYY-MM-DD-<feature-name>.md`.
